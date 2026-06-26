@@ -25,6 +25,7 @@ export default function CartPage() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('online');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
@@ -191,6 +192,7 @@ export default function CartPage() {
         seller_payout: sellerPayout,
         discount_code: appliedDiscount ? appliedDiscount.code : null,
         discount_amount: itemDiscountAmount,
+        payment_method: paymentMethod,
       });
     }
 
@@ -203,11 +205,6 @@ export default function CartPage() {
     }
 
     if (appliedDiscount) {
-      await supabase
-        .from('discount_codes')
-        .update({ used_count: appliedDiscount ? undefined : 0 })
-        .eq('id', appliedDiscount.id);
-
       const currentCodeRes = await supabase
         .from('discount_codes')
         .select('used_count')
@@ -241,6 +238,9 @@ export default function CartPage() {
         <div style={{background:"white", borderRadius:"16px", padding:"32px", textAlign:"center", maxWidth:"400px"}}>
           <div style={{fontSize:"48px"}}>✅</div>
           <h2 style={{color:"#16a34a", marginTop:"16px", fontWeight:"bold", fontSize:"20px"}}>{strings.order_placed}</h2>
+          {paymentMethod === 'cash_on_delivery' ? (
+            <p style={{color:"#6b7280", fontSize:"14px", marginTop:"8px"}}>هنگام تحویل، مبلغ را نقدی پرداخت کنید</p>
+          ) : null}
           <button
             onClick={() => { window.location.href = '/marketplace'; }}
             style={{marginTop:"20px", background:"#1e3a8a", color:"white", padding:"10px 28px", borderRadius:"10px", border:"none", cursor:"pointer", fontWeight:"bold"}}
@@ -298,7 +298,6 @@ export default function CartPage() {
                 </div>
               ))}
 
-              {/* کد تخفیف */}
               <div style={{paddingTop:"16px"}}>
                 {!appliedDiscount ? (
                   <div style={{display:"flex", gap:"8px"}}>
@@ -381,6 +380,30 @@ export default function CartPage() {
                   rows={3}
                   style={{width:"100%", border:"1px solid #d1d5db", borderRadius:"8px", padding:"10px 12px", boxSizing:"border-box"}}
                 />
+              </div>
+
+              <div style={{marginBottom:"20px"}}>
+                <label style={{display:"block", fontSize:"14px", color:"#6b7280", marginBottom:"8px"}}>روش پرداخت</label>
+                <div style={{display:"flex", gap:"12px"}}>
+                  <button
+                    onClick={() => setPaymentMethod('online')}
+                    style={{
+                      flex:1, padding:"12px", borderRadius:"10px", border: paymentMethod === 'online' ? "2px solid #1e3a8a" : "1px solid #d1d5db",
+                      background: paymentMethod === 'online' ? "#eff6ff" : "white", cursor:"pointer", fontSize:"14px", fontWeight: paymentMethod === 'online' ? "bold" : "normal"
+                    }}
+                  >
+                    💳 پرداخت آنلاین
+                  </button>
+                  <button
+                    onClick={() => setPaymentMethod('cash_on_delivery')}
+                    style={{
+                      flex:1, padding:"12px", borderRadius:"10px", border: paymentMethod === 'cash_on_delivery' ? "2px solid #1e3a8a" : "1px solid #d1d5db",
+                      background: paymentMethod === 'cash_on_delivery' ? "#eff6ff" : "white", cursor:"pointer", fontSize:"14px", fontWeight: paymentMethod === 'cash_on_delivery' ? "bold" : "normal"
+                    }}
+                  >
+                    💵 پرداخت در محل
+                  </button>
+                </div>
               </div>
 
               {error && <p style={{color:"red", fontSize:"14px", marginBottom:"12px"}}>{error}</p>}
