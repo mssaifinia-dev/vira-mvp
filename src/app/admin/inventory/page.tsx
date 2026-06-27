@@ -149,9 +149,8 @@ export default function AdminInventoryPage() {
       <div style={{maxWidth:"900px", margin:"0 auto"}}>
 
         <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"24px"}}>
-          <h1 style={{fontSize:"22px", fontWeight:"bold", color:"#1e3a8a"}}>مدیریت انبار و قیمت‌ها</h1>
-          <a href="/admin" style={{color:"#1e3a8a", fontSize:"14px", textDecoration:"none"}}>← بازگشت به پنل اصلی</a>
-        </div>
+          <h1 style={{fontSize:"22px", fontWeight:"bold", color:"#1e3a8a"}}>مدیریت انبار و قیمت‌ها</h1>                   <a href="/admin" style={{color:"#1e3a8a", fontSize:"14px", textDecoration:"none"}}>← بازگشت به پنل اصلی</a>
+                  </div>
 
         <div style={{background:"white", borderRadius:"12px", padding:"20px", marginBottom:"24px"}}>
           <p style={{fontWeight:"bold", marginBottom:"12px", fontSize:"14px"}}>بروزرسانی گروهی با فایل اکسل (CSV)</p>
