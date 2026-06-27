@@ -6,7 +6,7 @@ import { strings } from '@/lib/strings';
 
 type Seller = { id: string; shop_name: string; phone: string; city: string; is_approved: boolean; };
 type Product = { id: string; name: string; category: string; price: number; stock: number; };
-type Order = { id: string; full_name: string; phone: string; quantity: number; total_price: number; status: string; created_at: string; };
+type Order = { id: string; full_name: string; phone: string; quantity: number; total_price: number; status: string; created_at: string; payment_method: string; };
 type Technician = { id: string; full_name: string; phone: string; city: string; specialty: string; national_id: string; experience: string; is_approved: boolean; created_at: string; };
 type ServiceRequest = { id: string; issue_type: string; description: string; address: string; phone: string; status: string; created_at: string; technician_id: string | null; };
 
@@ -147,7 +147,7 @@ export default function AdminPanel() {
               مدیریت انبار
             </a>
           </div>
-          </div>
+        </div>
 
         <div style={{display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap:"12px", marginBottom:"24px"}}>
           {[
@@ -187,12 +187,13 @@ export default function AdminPanel() {
                   <th style={{padding:"12px"}}>{strings.col_qty}</th>
                   <th style={{padding:"12px"}}>{strings.col_amount}</th>
                   <th style={{padding:"12px"}}>{strings.col_status}</th>
+                  <th style={{padding:"12px"}}>پرداخت</th>
                   <th style={{padding:"12px"}}>{strings.col_action}</th>
                 </tr>
               </thead>
               <tbody>
                 {orders.length === 0 ? (
-                  <tr><td colSpan={6} style={{padding:"32px", textAlign:"center", color:"#9ca3af"}}>{strings.no_data_orders}</td></tr>
+                  <tr><td colSpan={7} style={{padding:"32px", textAlign:"center", color:"#9ca3af"}}>{strings.no_data_orders}</td></tr>
                 ) : orders.map(o => (
                   <tr key={o.id} style={{borderBottom:"1px solid #f3f4f6"}}>
                     <td style={{padding:"12px"}}>{o.full_name}</td>
@@ -204,6 +205,13 @@ export default function AdminPanel() {
                         background: o.status === 'pending' ? "#fef3c7" : o.status === 'confirmed' ? "#dbeafe" : o.status === 'delivered' ? "#d1fae5" : "#fee2e2",
                         color: o.status === 'pending' ? "#d97706" : o.status === 'confirmed' ? "#1d4ed8" : o.status === 'delivered' ? "#065f46" : "#dc2626"
                       }}>{statusMap[o.status] || o.status}</span>
+                    </td>
+                    <td style={{padding:"12px"}}>
+                      <span style={{padding:"4px 8px", borderRadius:"6px", fontSize:"12px",
+                        background: o.payment_method === 'cash_on_delivery' ? "#fef3c7" : "#dbeafe",
+                        color: o.payment_method === 'cash_on_delivery' ? "#d97706" : "#1d4ed8"}}>
+                        {o.payment_method === 'cash_on_delivery' ? 'در محل' : 'آنلاین'}
+                      </span>
                     </td>
                     <td style={{padding:"12px"}}>
                       <select value={o.status} onChange={e => updateOrderStatus(o.id, e.target.value)}
