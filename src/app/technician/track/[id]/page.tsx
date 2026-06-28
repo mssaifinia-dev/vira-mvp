@@ -18,6 +18,7 @@ type Request = {
 type Technician = {
   full_name: string;
   phone: string;
+  photo_url: string | null;
 };
 
 type Invoice = {
@@ -39,10 +40,10 @@ export default function TrackRequest() {
   const [feedback, setFeedback] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
 
-  useEffect(function() {
+  useEffect(() => {
     fetchRequest();
     const interval = setInterval(fetchRequest, 5000);
-    return function() { clearInterval(interval); };
+    return () => clearInterval(interval);
   }, [id]);
 
   async function fetchRequest() {
@@ -51,7 +52,7 @@ export default function TrackRequest() {
     setRequest(data);
 
     if (data && data.technician_id) {
-      const res2 = await supabase.from('technicians').select('full_name, phone').eq('id', data.technician_id).single();
+      const res2 = await supabase.from('technicians').select('full_name, phone, photo_url').eq('id', data.technician_id).single();
       setTechnician(res2.data);
     }
 
@@ -127,14 +128,21 @@ export default function TrackRequest() {
           ) : null}
 
           {technician !== null ? (
-            <div style={{marginTop:"16px", background:"#f0f9ff", borderRadius:"10px", padding:"16px", textAlign:"right"}}>
-              <p style={{fontWeight:"bold"}}>{technician.full_name}</p>
-              <p style={{color:"#6b7280", fontSize:"14px", marginTop:"4px"}}>{technician.phone}</p>
-              {request.eta_minutes ? (
-                <p style={{color:"#16a34a", fontSize:"14px", marginTop:"4px", fontWeight:"bold"}}>
-                  {strings.eta_label}: {request.eta_minutes} {strings.minutes_label}
-                </p>
-              ) : null}
+            <div style={{marginTop:"16px", background:"#f0f9ff", borderRadius:"10px", padding:"16px", textAlign:"right", display:"flex", gap:"16px", alignItems:"center"}}>
+              {technician.photo_url ? (
+                <img src={technician.photo_url} alt={technician.full_name} style={{width:"64px", height:"64px", borderRadius:"50%", objectFit:"cover", flexShrink:0}} />
+              ) : (
+                <div style={{width:"64px", height:"64px", borderRadius:"50%", background:"#d1d5db", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"28px", flexShrink:0}}>👤</div>
+              )}
+              <div>
+                <p style={{fontWeight:"bold"}}>{technician.full_name}</p>
+                <p style={{color:"#6b7280", fontSize:"14px", marginTop:"4px"}}>{technician.phone}</p>
+                {request.eta_minutes ? (
+                  <p style={{color:"#16a34a", fontSize:"14px", marginTop:"4px", fontWeight:"bold"}}>
+                    {strings.eta_label}: {request.eta_minutes} {strings.minutes_label}
+                  </p>
+                ) : null}
+              </div>
             </div>
           ) : null}
         </div>

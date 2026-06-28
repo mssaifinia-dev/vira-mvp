@@ -149,6 +149,19 @@ export default function AdminPanel() {
             <a href="/admin/inventory" style={{background:"#f59e0b", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
               مدیریت انبار
             </a>
+<a
+  href="/admin/advertisements"
+  style={{
+    background:"#f59e0b",
+    color:"white",
+    textDecoration:"none",
+    padding:"8px 16px",
+    borderRadius:"8px",
+    fontSize:"14px"
+  }}
+>
+  تبلیغات
+</a>
           </div>
         </div>
 
