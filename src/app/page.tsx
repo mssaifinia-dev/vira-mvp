@@ -143,15 +143,16 @@ export default async function Home() {
 
               {ad.image_url ? (
 
-                <img
-                  src={ad.image_url}
-                  alt={ad.title}
-                  style={{
-                    width:"100%",
-                    maxHeight:"250px",
-                    objectFit:"cover"
-                  }}
-                />
+            <img
+              src={ad.image_url}
+             alt={ad.title}
+             style={{
+                width:"100%",
+                height:"250px",
+                objectFit:"contain",
+                background:"#f9fafb"
+              }}
+             />
 
               ) : (
 

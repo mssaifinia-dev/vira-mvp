@@ -19,14 +19,11 @@ export default function AdminAdvertisementsPage() {
   const [loading, setLoading] = useState(true);
 
   const [title, setTitle] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [position, setPosition] = useState('home_top');
 
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-
   const [message, setMessage] = useState('');
-
 
   useEffect(() => {
     checkAdmin();
@@ -39,10 +36,9 @@ export default function AdminAdvertisementsPage() {
     const user = userRes.data.user;
 
     if (!user) {
-      window.location.href = '/auth';
+      window.location.href='/auth';
       return;
     }
-
 
     const adminRes = await supabase
       .from('admins')
@@ -50,22 +46,18 @@ export default function AdminAdvertisementsPage() {
       .eq('user_id', user.id)
       .maybeSingle();
 
-
     if (!adminRes.data) {
-      window.location.href = '/';
+      window.location.href='/';
       return;
     }
 
-
     fetchAds();
-
   }
-
 
 
   async function fetchAds(){
 
-    const {data,error} = await supabase
+    const {data,error}=await supabase
       .from('advertisements')
       .select('*')
       .order('created_at',{ascending:false});
@@ -75,10 +67,8 @@ export default function AdminAdvertisementsPage() {
       console.log(error);
     }
 
-
     setAds(data || []);
     setLoading(false);
-
   }
 
 
@@ -86,166 +76,83 @@ export default function AdminAdvertisementsPage() {
   async function addAd(){
 
     if(!title){
-
       setMessage('عنوان تبلیغ الزامی است');
       return;
-
     }
 
 
-    setUploading(true);
-    setMessage('');
-
-
-    let imageUrl = '';
-
-
-
-    if(imageFile){
-
-
-      const fileExt = imageFile.name.split('.').pop();
-
-const fileName =
-  Date.now() + '.' + fileExt;  
-
-      const {error: uploadError} =
-        await supabase.storage
-        .from('advertisements')
-        .upload(fileName,imageFile);
-
-
-
-      if(uploadError){
-
-        setMessage(
-          'خطا در آپلود تصویر: ' + uploadError.message
-        );
-
-        setUploading(false);
-        return;
-
-      }
-
-
-
-      const {data} =
-        supabase.storage
-        .from('advertisements')
-        .getPublicUrl(fileName);
-
-
-
-      imageUrl = data.publicUrl;
-
-
-    }
-    
-    const {error} = await supabase
+    const {error}=await supabase
       .from('advertisements')
       .insert({
-
         title,
         image_url:imageUrl,
         link_url:linkUrl,
         position,
         active:true
-
       });
 
 
-
     if(error){
 
-      setMessage('خطا: ' + error.message);
-      setUploading(false);
+      console.log(error);
+      setMessage('خطا: '+error.message);
       return;
 
     }
-
 
 
     setTitle('');
+    setImageUrl('');
     setLinkUrl('');
-    setImageFile(null);
 
-    setMessage('تبلیغ با موفقیت ثبت شد');
-
-    setUploading(false);
+    setMessage('تبلیغ ثبت شد');
 
     fetchAds();
 
   }
+    async function toggleActive(id:string, active:boolean){
 
-
-
-
-
-  async function toggleActive(id:string,active:boolean){
-
-    const {error} = await supabase
+    const {error}=await supabase
       .from('advertisements')
-      .update({
-        active:!active
-      })
+      .update({active:!active})
       .eq('id',id);
 
-
-
     if(error){
-
-      setMessage('خطا: ' + error.message);
+      setMessage('خطا: '+error.message);
       return;
-
     }
 
-
     fetchAds();
-
   }
-
-
 
 
 
   async function deleteAd(id:string){
 
-
-    const {error} = await supabase
+    const {error}=await supabase
       .from('advertisements')
       .delete()
       .eq('id',id);
 
 
-
     if(error){
-
-      setMessage('خطا: ' + error.message);
+      setMessage('خطا: '+error.message);
       return;
-
     }
 
 
     fetchAds();
 
   }
-
 
 
 
   if(loading){
 
     return(
-
-      <main style={{
-        padding:"40px",
-        textAlign:"center"
-      }}>
-
+      <main style={{padding:"40px",textAlign:"center"}}>
         در حال بارگذاری...
-
       </main>
-
     );
 
   }
@@ -263,10 +170,7 @@ const fileName =
       }}
     >
 
-      <div style={{
-        maxWidth:"900px",
-        margin:"auto"
-      }}>
+      <div style={{maxWidth:"900px",margin:"auto"}}>
 
 
         <div style={{
@@ -275,24 +179,17 @@ const fileName =
           marginBottom:"24px"
         }}>
 
-
           <h1 style={{
             fontSize:"24px",
             fontWeight:"bold",
             color:"#1e3a8a"
           }}>
-
             مدیریت تبلیغات
-
           </h1>
 
 
-          <a href="/admin" style={{
-            color:"#1e3a8a"
-          }}>
-
+          <a href="/admin" style={{color:"#1e3a8a"}}>
             بازگشت
-
           </a>
 
 
@@ -312,9 +209,7 @@ const fileName =
             fontWeight:"bold",
             marginBottom:"15px"
           }}>
-
             ثبت تبلیغ جدید
-
           </h2>
 
 
@@ -327,18 +222,12 @@ const fileName =
           />
 
 
-
           <input
-            type="file"
-            accept="image/*"
-            onChange={
-              e=>setImageFile(
-                e.target.files?.[0] || null
-              )
-            }
+            placeholder="آدرس تصویر بنر"
+            value={imageUrl}
+            onChange={e=>setImageUrl(e.target.value)}
             style={inputStyle}
           />
-
 
 
           <input
@@ -347,7 +236,6 @@ const fileName =
             onChange={e=>setLinkUrl(e.target.value)}
             style={inputStyle}
           />
-
 
 
           <select
@@ -360,16 +248,16 @@ const fileName =
               صفحه اصلی بالا
             </option>
 
-
             <option value="marketplace_top">
               فروشگاه
             </option>
 
-
           </select>
-                    <button
+
+
+
+          <button
             onClick={addAd}
-            disabled={uploading}
             style={{
               background:"#16a34a",
               color:"white",
@@ -379,179 +267,127 @@ const fileName =
               cursor:"pointer"
             }}
           >
-
-            {uploading ? 'در حال آپلود...' : 'ثبت تبلیغ'}
-
+            ثبت تبلیغ
           </button>
 
 
 
           {message &&
-
             <p style={{
               color:"#16a34a",
               marginTop:"10px"
             }}>
-
               {message}
-
             </p>
-
           }
 
 
         </div>
-
-
-
-
-        <div style={{
+                <div style={{
           background:"white",
           borderRadius:"12px",
           overflow:"hidden"
         }}>
-
 
           <table style={{
             width:"100%",
             borderCollapse:"collapse"
           }}>
 
-
             <thead style={{
               background:"#1e3a8a",
               color:"white"
             }}>
 
-
               <tr>
-
-                <th style={th}>
-                  عنوان
-                </th>
-
-
-                <th style={th}>
-                  جایگاه
-                </th>
-
-
-                <th style={th}>
-                  وضعیت
-                </th>
-
-
-                <th style={th}>
-                  عملیات
-                </th>
-
+                <th style={th}>عنوان</th>
+                <th style={th}>جایگاه</th>
+                <th style={th}>وضعیت</th>
+                <th style={th}>عملیات</th>
               </tr>
-
 
             </thead>
 
 
-
             <tbody>
 
+              {ads.length === 0 ? (
 
-            {ads.length === 0 ? (
-
-              <tr>
-
-                <td
-                  colSpan={4}
-                  style={{
-                    padding:"20px",
-                    textAlign:"center",
-                    color:"#999"
-                  }}
-                >
-
-                  تبلیغی ثبت نشده است
-
-                </td>
-
-              </tr>
-
-
-            ) : (
-
-
-              ads.map(ad=>(
-
-                <tr key={ad.id}>
-
-
-                  <td style={td}>
-                    {ad.title}
+                <tr>
+                  <td
+                    colSpan={4}
+                    style={{
+                      padding:"20px",
+                      textAlign:"center",
+                      color:"#999"
+                    }}
+                  >
+                    تبلیغی ثبت نشده است
                   </td>
-
-
-                  <td style={td}>
-                    {ad.position}
-                  </td>
-
-
-                  <td style={td}>
-                    {ad.active ? 'فعال' : 'غیرفعال'}
-                  </td>
-
-
-
-                  <td style={td}>
-
-
-                    <button
-                      onClick={()=>toggleActive(ad.id,ad.active)}
-                      style={btnBlue}
-                    >
-
-                      تغییر وضعیت
-
-                    </button>
-
-
-
-                    <button
-                      onClick={()=>deleteAd(ad.id)}
-                      style={btnRed}
-                    >
-
-                      حذف
-
-                    </button>
-
-
-                  </td>
-
-
                 </tr>
 
+              ) : (
 
-              ))
+                ads.map(ad=>(
+
+                  <tr key={ad.id}>
+
+                    <td style={td}>
+                      {ad.title}
+                    </td>
 
 
-            )}
+                    <td style={td}>
+                      {ad.position}
+                    </td>
 
+
+                    <td style={td}>
+                      {ad.active ? 'فعال' : 'غیرفعال'}
+                    </td>
+
+
+                    <td style={td}>
+
+
+                      <button
+                        onClick={()=>toggleActive(ad.id,ad.active)}
+                        style={btnBlue}
+                      >
+                        تغییر وضعیت
+                      </button>
+
+
+                      <button
+                        onClick={()=>deleteAd(ad.id)}
+                        style={btnRed}
+                      >
+                        حذف
+                      </button>
+
+
+                    </td>
+
+
+                  </tr>
+
+                ))
+
+              )}
 
             </tbody>
 
 
           </table>
 
-
         </div>
 
 
       </div>
 
-
     </main>
 
-
   );
-
 
 }
 
