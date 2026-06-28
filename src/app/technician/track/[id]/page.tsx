@@ -128,21 +128,19 @@ export default function TrackRequest() {
           ) : null}
 
           {technician !== null ? (
-            <div style={{marginTop:"16px", background:"#f0f9ff", borderRadius:"10px", padding:"16px", textAlign:"right", display:"flex", gap:"16px", alignItems:"center"}}>
+            <div style={{marginTop:"16px", background:"#f0f9ff", borderRadius:"14px", padding:"20px", textAlign:"center"}}>
               {technician.photo_url ? (
-                <img src={technician.photo_url} alt={technician.full_name} style={{width:"64px", height:"64px", borderRadius:"50%", objectFit:"cover", flexShrink:0}} />
+                <img src={technician.photo_url} alt={technician.full_name} style={{width:"180px", height:"180px", borderRadius:"50%", objectFit:"cover", border:"4px solid #1e3a8a", margin:"0 auto 16px", display:"block"}} />
               ) : (
-                <div style={{width:"64px", height:"64px", borderRadius:"50%", background:"#d1d5db", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"28px", flexShrink:0}}>👤</div>
+                <div style={{width:"180px", height:"180px", borderRadius:"50%", background:"#d1d5db", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"72px", margin:"0 auto 16px"}}>👤</div>
               )}
-              <div>
-                <p style={{fontWeight:"bold"}}>{technician.full_name}</p>
-                <p style={{color:"#6b7280", fontSize:"14px", marginTop:"4px"}}>{technician.phone}</p>
-                {request.eta_minutes ? (
-                  <p style={{color:"#16a34a", fontSize:"14px", marginTop:"4px", fontWeight:"bold"}}>
-                    {strings.eta_label}: {request.eta_minutes} {strings.minutes_label}
-                  </p>
-                ) : null}
-              </div>
+              <p style={{fontWeight:"bold", fontSize:"20px"}}>{technician.full_name}</p>
+              <p style={{color:"#6b7280", fontSize:"16px", marginTop:"6px"}}>📞 {technician.phone}</p>
+              {request.eta_minutes ? (
+                <p style={{color:"#16a34a", fontSize:"16px", marginTop:"8px", fontWeight:"bold"}}>
+                  ⏱ {strings.eta_label}: {request.eta_minutes} {strings.minutes_label}
+                </p>
+              ) : null}
             </div>
           ) : null}
         </div>
