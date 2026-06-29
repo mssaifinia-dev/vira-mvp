@@ -159,7 +159,7 @@ export default function SellerDashboard() {
   setStock('');
   setImageFile(null);
 
-  loadProducts(sellerId);
+  fetchMyProducts(sellerId);
 }
    
   async function handleDelete(id: string) {
