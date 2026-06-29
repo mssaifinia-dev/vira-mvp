@@ -7,7 +7,18 @@ import { strings } from '@/lib/strings';
 type Seller = { id: string; shop_name: string; phone: string; city: string; is_approved: boolean; };
 type Product = { id: string; name: string; category: string; price: number; stock: number; };
 type Order = { id: string; full_name: string; phone: string; quantity: number; total_price: number; status: string; created_at: string; payment_method: string; };
-type Technician = { id: string; full_name: string; phone: string; city: string; specialty: string; national_id: string; experience: string; is_approved: boolean; created_at: string; };
+type Technician = {
+  id: string;
+  full_name: string;
+  phone: string;
+  city: string;
+  specialty: string;
+  national_id: string;
+  experience: string;
+  is_approved: boolean;
+  created_at: string;
+  photo_url: string | null;
+};
 type ServiceRequest = { id: string; issue_type: string; description: string; address: string; phone: string; status: string; created_at: string; technician_id: string | null; };
 
 const statusMap: Record<string, string> = {
@@ -198,6 +209,7 @@ export default function AdminPanel() {
             <table style={{width:"100%", borderCollapse:"collapse", textAlign:"right"}}>
               <thead style={{background:"#1e3a8a", color:"white"}}>
                 <tr>
+                  <th style={{padding:"12px"}}>تصویر</th>
                   <th style={{padding:"12px"}}>{strings.col_name}</th>
                   <th style={{padding:"12px"}}>{strings.col_phone}</th>
                   <th style={{padding:"12px"}}>{strings.col_qty}</th>
@@ -279,7 +291,28 @@ export default function AdminPanel() {
                     <tr><td colSpan={7} style={{padding:"32px", textAlign:"center", color:"#9ca3af"}}>{strings.no_data_technicians}</td></tr>
                   ) : filteredTechnicians.map(t => (
                     <tr key={t.id} style={{borderBottom:"1px solid #f3f4f6"}}>
-                      <td style={{padding:"12px", fontWeight:"bold"}}>{t.full_name}</td>
+
+<td style={{padding:"12px"}}>
+  {t.photo_url ? (
+    <img
+      src={t.photo_url}
+      alt={t.full_name}
+      style={{
+        width:"50px",
+        height:"50px",
+        borderRadius:"50%",
+        objectFit:"cover"
+      }}
+    />
+  ) : (
+    <span>👤</span>
+  )}
+</td>
+
+<td style={{padding:"12px", fontWeight:"bold"}}>{t.full_name}</td>
+
+
+
                       <td style={{padding:"12px", color:"#6b7280"}}>{t.phone}</td>
                       <td style={{padding:"12px", color:"#6b7280"}}>{t.city}</td>
                       <td style={{padding:"12px", color:"#6b7280"}}>{specialtyMap[t.specialty] || t.specialty}</td>

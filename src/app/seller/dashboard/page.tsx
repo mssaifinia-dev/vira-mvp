@@ -12,6 +12,7 @@ type Product = {
   is_special_offer: boolean;
   category: string;
   stock: number;
+  image: string | null;
 };
 
 type SalesReportRow = {
@@ -22,7 +23,7 @@ type SalesReportRow = {
 };
 
 export default function SellerDashboard() {
-  const [products, setProducts] = useState<Product[]>([]);
+   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -37,6 +38,7 @@ export default function SellerDashboard() {
   const [isSpecialOffer, setIsSpecialOffer] = useState(false);
   const [category, setCategory] = useState('ftth');
   const [stock, setStock] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const categories = [
     { value: 'ftth', label: 'تجهیزات FTTH' },
@@ -92,44 +94,74 @@ export default function SellerDashboard() {
     setSales(data || []);
   }
 
-  async function handleAddProduct() {
-    setError(null);
-    if (!name || !price || !stock) {
-      setError('نام، قیمت و موجودی الزامی است');
-      return;
-    }
+ async function handleAddProduct() {
+  setError(null);
 
-    if (!sellerId) {
-      setError('حساب فروشندگی شما هنوز ثبت یا تایید نشده است');
-      return;
-    }
-
-    if (originalPrice && Number(originalPrice) <= Number(price)) {
-      setError('قیمت اصلی باید بیشتر از قیمت فروش باشد');
-      return;
-    }
-
-    const { error } = await supabase.from('products').insert({
-      name,
-      description,
-      price: Number(price),
-      original_price: originalPrice ? Number(originalPrice) : null,
-      is_special_offer: isSpecialOffer,
-      category,
-      stock: Number(stock),
-      seller_id: sellerId,
-    });
-
-    if (error) {
-      setError('خطا در ثبت محصول');
-    } else {
-      setMessage('محصول با موفقیت ثبت شد!');
-      setName(''); setDescription(''); setPrice(''); setOriginalPrice(''); setIsSpecialOffer(false); setStock('');
-      setShowForm(false);
-      fetchMyProducts(sellerId);
-    }
+  if (!name || !price || !stock) {
+    setError('نام، قیمت و موجودی الزامی است');
+    return;
   }
 
+  if (!sellerId) {
+    setError('حساب فروشندگی شما هنوز ثبت یا تایید نشده است');
+    return;
+  }
+
+  if (originalPrice && Number(originalPrice) <= Number(price)) {
+    setError('قیمت اصلی باید بیشتر از قیمت فروش باشد');
+    return;
+  }
+
+  let imageUrl = null;
+
+  if (imageFile) {
+    const fileExt = imageFile.name.split('.').pop();
+    const fileName = Date.now() + '.' + fileExt;
+
+    const { error: uploadError } = await supabase.storage
+      .from('products')
+      .upload(fileName, imageFile);
+
+    if (uploadError) {
+      setError('خطا در آپلود تصویر: ' + uploadError.message);
+      return;
+    }
+
+    const { data } = supabase.storage
+      .from('products')
+      .getPublicUrl(fileName);
+
+    imageUrl = data.publicUrl;
+  }
+
+  const { error } = await supabase.from('products').insert({
+    name,
+    description,
+    price: Number(price),
+    original_price: originalPrice ? Number(originalPrice) : null,
+    is_special_offer: isSpecialOffer,
+    category,
+    stock: Number(stock),
+    seller_id: sellerId,
+    image: imageUrl,
+  });
+
+  if (error) {
+    setError(error.message);
+    return;
+  }
+
+  setName('');
+  setDescription('');
+  setPrice('');
+  setOriginalPrice('');
+  setCategory('');
+  setStock('');
+  setImageFile(null);
+
+  loadProducts(sellerId);
+}
+   
   async function handleDelete(id: string) {
     await supabase.from('products').delete().eq('id', id);
     if (sellerId) fetchMyProducts(sellerId);
@@ -265,7 +297,15 @@ export default function SellerDashboard() {
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm text-gray-600 mb-1">توضیحات</label>
+                <label className="block text-sm text-gray-600 mb-1">تصویر محصول</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e)=>setImageFile(e.target.files?.[0] || null)}
+                    className="w-full border rounded-lg px-4 py-2 mb-4"
+                  />
+
+                  <label className="block text-sm text-gray-600 mb-1">توضیحات</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -291,6 +331,7 @@ export default function SellerDashboard() {
           <table className="w-full text-right">
             <thead className="bg-blue-900 text-white">
               <tr>
+                <th className="p-4">تصویر</th>
                 <th className="p-4">نام محصول</th>
                 <th className="p-4">دسته‌بندی</th>
                 <th className="p-4">قیمت</th>
