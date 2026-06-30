@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { strings } from '@/lib/strings';
+import ZoomableImage from '@/components/ZoomableImage';
 
 type Request = {
   id: string;
@@ -130,7 +131,15 @@ export default function TrackRequest() {
           {technician !== null ? (
             <div style={{marginTop:"16px", background:"#f0f9ff", borderRadius:"14px", padding:"20px", textAlign:"center"}}>
               {technician.photo_url ? (
-                <img src={technician.photo_url} alt={technician.full_name} style={{width:"180px", height:"180px", borderRadius:"50%", objectFit:"cover", border:"4px solid #1e3a8a", margin:"0 auto 16px", display:"block"}} />
+                <div style={{display:"flex", justifyContent:"center", marginBottom:"16px"}}>
+                  <ZoomableImage
+                    src={technician.photo_url}
+                    alt={technician.full_name}
+                    size={180}
+                    borderColor="#1e3a8a"
+                    borderWidth={4}
+                  />
+                </div>
               ) : (
                 <div style={{width:"180px", height:"180px", borderRadius:"50%", background:"#d1d5db", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"72px", margin:"0 auto 16px"}}>👤</div>
               )}
