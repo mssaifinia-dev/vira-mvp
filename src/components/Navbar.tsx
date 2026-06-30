@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -78,25 +79,38 @@ export default function Navbar() {
 
   return (
     <nav style={{backgroundColor: "#1e3a8a", padding: "16px 24px"}} dir="rtl">
-      <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: "1200px", margin: "0 auto", flexWrap: "wrap", gap: "16px"}}>
+      <div style={{maxWidth: "1200px", margin: "0 auto"}}>
 
-        <div style={{display:"flex", alignItems:"center", gap:"14px", flexWrap:"wrap"}}>
-          <Link href="/" style={{color: "white", fontWeight: "bold", fontSize: "18px", textDecoration: "none", display: "flex", alignItems: "center", gap: "6px"}}>
-            <span>🏠</span>
-            <span>ویرا</span>
-          </Link>
+        <div style={{display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px"}}>
 
-          {user ? (
-            <div style={{display:"flex", alignItems:"center", gap:"6px", background:"rgba(255,255,255,0.08)", borderRadius:"20px", padding:"4px 12px"}}>
-              <span style={{fontSize:"15px", color:"rgba(255,255,255,0.6)"}}>{getDisplayIdentity(user.email)}</span>
-              <span style={{fontSize:"13px", color:"#1e3a8a", background:"#fbbf24", borderRadius:"10px", padding:"2px 8px", fontWeight:"bold"}}>
-                {getRoleLabel()}
-              </span>
-            </div>
-          ) : null}
+          <div style={{display:"flex", alignItems:"center", gap:"14px", flexWrap:"wrap"}}>
+            <Link href="/" style={{color: "white", fontWeight: "bold", fontSize: "18px", textDecoration: "none", display: "flex", alignItems: "center", gap: "6px"}}>
+              <span>🏠</span>
+              <span>ویرا</span>
+            </Link>
+
+            {user ? (
+              <div style={{display:"flex", alignItems:"center", gap:"6px", background:"rgba(255,255,255,0.08)", borderRadius:"20px", padding:"4px 12px"}}>
+                <span style={{fontSize:"15px", color:"rgba(255,255,255,0.6)"}}>{getDisplayIdentity(user.email)}</span>
+                <span style={{fontSize:"13px", color:"#1e3a8a", background:"#fbbf24", borderRadius:"10px", padding:"2px 8px", fontWeight:"bold"}}>
+                  {getRoleLabel()}
+                </span>
+              </div>
+            ) : null}
+          </div>
+
+          <Image
+            src="/icons/navbar-logo.png"
+            alt="ویرا"
+            width={56}
+            height={35}
+            style={{objectFit: "contain"}}
+            priority
+          />
+
         </div>
 
-        <div style={{display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center"}}>
+        <div style={{display: "flex", justifyContent: "flex-end", gap: "10px", flexWrap: "wrap", alignItems: "center"}}>
 
           <Link href="/marketplace" style={tabStyle}>فروشگاه</Link>
           <Link href="/cart" style={tabStyle}>سبد خرید</Link>
