@@ -98,19 +98,31 @@ export default function Navbar() {
               </div>
             ) : null}
           </div>
-
-          <Image
-            src="/icons/navbar-logo.png"
-            alt="ویرا"
-            width={56}
-            height={35}
-            style={{objectFit: "contain"}}
-            priority
-          />
-
+<div style={{display: "flex", flexDirection: "column", alignItems: "center", gap: "4px"}}>
+            <Image
+              src="/icons/navbar-logo.png"
+              alt="ویرا"
+              width={56}
+              height={35}
+              style={{objectFit: "contain"}}
+              priority
+            />
+            <Link href="/about" style={{
+              color: "rgba(255,255,255,0.85)",
+              fontSize: "12px",
+              textDecoration: "none",
+              background: "rgba(255,255,255,0.1)",
+              padding: "2px 10px",
+              borderRadius: "10px",
+              whiteSpace: "nowrap",
+            }}>
+              درباره ما
+            </Link>
+          </div>
+       
         </div>
 
-        <div style={{display: "flex", justifyContent: "flex-end", gap: "10px", flexWrap: "wrap", alignItems: "center"}}>
+                  <div style={{display: "flex", justifyContent: "flex-end", gap: "10px", flexWrap: "wrap", alignItems: "center"}}>
 
           <Link href="/marketplace" style={tabStyle}>فروشگاه</Link>
           <Link href="/cart" style={tabStyle}>سبد خرید</Link>

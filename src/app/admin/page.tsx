@@ -144,25 +144,18 @@ export default function AdminPanel() {
             <a href="/admin/discounts" style={{background:"#dc2626", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
               کدهای تخفیف
             </a>
-           <a href="/admin/finance" style={{background:"#7c3aed", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
+            <a href="/admin/finance" style={{background:"#7c3aed", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
               سود و زیان
             </a>
             <a href="/admin/inventory" style={{background:"#f59e0b", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
               مدیریت انبار
             </a>
-<a
-  href="/admin/advertisements"
-  style={{
-    background:"#f59e0b",
-    color:"white",
-    textDecoration:"none",
-    padding:"8px 16px",
-    borderRadius:"8px",
-    fontSize:"14px"
-  }}
->
-  تبلیغات
-</a>
+            <a href="/admin/advertisements" style={{background:"#f59e0b", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
+              تبلیغات
+            </a>
+            <a href="/admin/about" style={{background:"#0891b2", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
+              درباره ما
+            </a>
           </div>
         </div>
 
