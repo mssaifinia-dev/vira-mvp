@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
+type Alignment = 'right' | 'left' | 'center' | 'full';
+
 type Advertisement = {
   id: string;
   title: string;
@@ -11,6 +13,15 @@ type Advertisement = {
   position: string;
   active: boolean;
   created_at: string;
+  sort_order: number;
+  alignment: Alignment;
+};
+
+const alignLabels: Record<Alignment, string> = {
+  right: '➡️ راست',
+  left: '⬅️ چپ',
+  center: '⏺ وسط',
+  full: '⬛ تمام عرض',
 };
 
 export default function AdminAdvertisementsPage() {
@@ -26,6 +37,7 @@ export default function AdminAdvertisementsPage() {
   const [uploading, setUploading] = useState(false);
 
   const [message, setMessage] = useState('');
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
 
 
   useEffect(() => {
@@ -68,7 +80,7 @@ export default function AdminAdvertisementsPage() {
     const {data,error} = await supabase
       .from('advertisements')
       .select('*')
-      .order('created_at',{ascending:false});
+      .order('sort_order',{ascending:true});
 
 
     if(error){
@@ -104,10 +116,9 @@ export default function AdminAdvertisementsPage() {
     if(imageFile){
 
 
-      const fileExt = imageFile.name.split('.').pop();
-
-const fileName =
-  Date.now() + '.' + fileExt;  
+      const fileExt = imageFile.name.match(/\.([a-zA-Z0-9]+)$/);
+      const ext = fileExt ? fileExt[1].toLowerCase() : 'jpg';
+      const fileName = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
 
       const {error: uploadError} =
         await supabase.storage
@@ -140,7 +151,7 @@ const fileName =
 
 
     }
-    
+
     const {error} = await supabase
       .from('advertisements')
       .insert({
@@ -149,7 +160,9 @@ const fileName =
         image_url:imageUrl,
         link_url:linkUrl,
         position,
-        active:true
+        active:true,
+        sort_order: ads.length,
+        alignment: 'full',
 
       });
 
@@ -205,6 +218,35 @@ const fileName =
   }
 
 
+
+  async function setAlignment(id: string, alignment: Alignment) {
+    setAds(ads.map(a => a.id === id ? { ...a, alignment } : a));
+    await supabase.from('advertisements').update({ alignment }).eq('id', id);
+  }
+
+
+
+  function handleDragStart(index: number) {
+    setDragIndex(index);
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === index) return;
+    const reordered = [...ads];
+    const [moved] = reordered.splice(dragIndex, 1);
+    reordered.splice(index, 0, moved);
+    setDragIndex(index);
+    setAds(reordered);
+  }
+
+  async function handleDragEnd() {
+    setDragIndex(null);
+    const updates = ads.map((ad, i) =>
+      supabase.from('advertisements').update({ sort_order: i }).eq('id', ad.id)
+    );
+    await Promise.all(updates);
+  }
 
 
 
@@ -404,142 +446,100 @@ const fileName =
 
 
 
-
-        <div style={{
-          background:"white",
-          borderRadius:"12px",
-          overflow:"hidden"
-        }}>
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '14px', marginBottom: '20px', fontSize: '13px', color: '#1e40af' }}>
+          هر تبلیغ رو از نوار بالاش بگیرید و بالا/پایین بکشید تا ترتیب نمایششون توی صفحه اصلی عوض بشه.
+          با دکمه‌های راست/چپ/وسط/تمام‌عرض هم چیدمانشون رو تعیین کنید.
+        </div>
 
 
-          <table style={{
-            width:"100%",
-            borderCollapse:"collapse"
-          }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
 
+          {ads.length === 0 ? (
 
-            <thead style={{
-              background:"#1e3a8a",
-              color:"white"
-            }}>
+            <p style={{ textAlign: 'center', color: '#9ca3af', padding: '20px' }}>
+              تبلیغی ثبت نشده است
+            </p>
 
+          ) : (
 
-              <tr>
+            ads.map((ad, index) => (
 
-                <th style={th}>
-                  عنوان
-                </th>
+              <div
+                key={ad.id}
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragEnd={handleDragEnd}
+                style={{
+                  border: dragIndex === index ? '2px dashed #2563eb' : '1px solid #e5e7eb',
+                  borderRadius: '10px',
+                  overflow: 'hidden',
+                  background: '#fff',
+                  opacity: dragIndex === index ? 0.5 : 1,
+                }}
+              >
+                <div style={{
+                  padding: '8px 12px', background: '#f9fafb', fontSize: '12px', color: '#6b7280',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'grab',
+                }}>
+                  <span>⠿ {ad.title} — برای جابه‌جایی بکشید</span>
+                  <span>{ad.position === 'home_top' ? 'صفحه اصلی' : 'فروشگاه'}</span>
+                </div>
 
+                <div style={{ padding: '14px' }}>
+                  {ad.image_url && (
+                    <img src={ad.image_url} alt={ad.title} style={{ width: '100%', maxHeight: '180px', objectFit: 'contain', background: '#f9fafb', borderRadius: '8px', marginBottom: '10px' }} />
+                  )}
 
-                <th style={th}>
-                  جایگاه
-                </th>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '10px' }}>
+                    <span style={{
+                      fontSize: '12px', padding: '3px 10px', borderRadius: '6px',
+                      background: ad.active ? '#d1fae5' : '#fee2e2',
+                      color: ad.active ? '#065f46' : '#dc2626',
+                    }}>
+                      {ad.active ? 'فعال' : 'غیرفعال'}
+                    </span>
+                  </div>
 
+                  <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                    {(['right', 'left', 'center', 'full'] as Alignment[]).map((a) => (
+                      <button
+                        key={a}
+                        onClick={() => setAlignment(ad.id, a)}
+                        style={{
+                          padding: '5px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer',
+                          border: ad.alignment === a ? '2px solid #2563eb' : '1px solid #d1d5db',
+                          background: ad.alignment === a ? '#eff6ff' : '#fff',
+                          color: ad.alignment === a ? '#2563eb' : '#6b7280',
+                          fontWeight: ad.alignment === a ? 'bold' : 'normal',
+                        }}
+                      >
+                        {alignLabels[a]}
+                      </button>
+                    ))}
+                  </div>
 
-                <th style={th}>
-                  وضعیت
-                </th>
-
-
-                <th style={th}>
-                  عملیات
-                </th>
-
-              </tr>
-
-
-            </thead>
-
-
-
-            <tbody>
-
-
-            {ads.length === 0 ? (
-
-              <tr>
-
-                <td
-                  colSpan={4}
-                  style={{
-                    padding:"20px",
-                    textAlign:"center",
-                    color:"#999"
-                  }}
-                >
-
-                  تبلیغی ثبت نشده است
-
-                </td>
-
-              </tr>
-
-
-            ) : (
-
-
-              ads.map(ad=>(
-
-                <tr key={ad.id}>
-
-
-                  <td style={td}>
-                    {ad.title}
-                  </td>
-
-
-                  <td style={td}>
-                    {ad.position}
-                  </td>
-
-
-                  <td style={td}>
-                    {ad.active ? 'فعال' : 'غیرفعال'}
-                  </td>
-
-
-
-                  <td style={td}>
-
-
+                  <div>
                     <button
                       onClick={()=>toggleActive(ad.id,ad.active)}
                       style={btnBlue}
                     >
-
                       تغییر وضعیت
-
                     </button>
-
-
 
                     <button
                       onClick={()=>deleteAd(ad.id)}
                       style={btnRed}
                     >
-
                       حذف
-
                     </button>
+                  </div>
+                </div>
+              </div>
 
+            ))
 
-                  </td>
-
-
-                </tr>
-
-
-              ))
-
-
-            )}
-
-
-            </tbody>
-
-
-          </table>
-
+          )}
 
         </div>
 
@@ -564,23 +564,6 @@ const inputStyle = {
   marginBottom:"10px",
   border:"1px solid #d1d5db",
   borderRadius:"8px"
-
-};
-
-
-
-const th = {
-
-  padding:"12px"
-
-};
-
-
-
-const td = {
-
-  padding:"12px",
-  borderBottom:"1px solid #eee"
 
 };
 
