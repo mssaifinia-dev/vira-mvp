@@ -37,6 +37,12 @@ export default function CartPage() {
 
   useEffect(() => {
     fetchCart();
+
+    // نمایش پیام در صورت برگشت ناموفق از درگاه پرداخت
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment') === 'failed') {
+      setError('پرداخت انجام نشد یا لغو شد. لطفاً دوباره تلاش کنید.');
+    }
   }, []);
 
   function handlePhone(val: string) {
@@ -193,10 +199,11 @@ export default function CartPage() {
         discount_code: appliedDiscount ? appliedDiscount.code : null,
         discount_amount: itemDiscountAmount,
         payment_method: paymentMethod,
+        payment_status: paymentMethod === 'online' ? 'unpaid' : 'not_applicable',
       });
     }
 
-    const insertRes = await supabase.from('orders').insert(orderRows);
+    const insertRes = await supabase.from('orders').insert(orderRows).select('id');
 
     if (insertRes.error) {
       setError(insertRes.error.message);
@@ -219,6 +226,42 @@ export default function CartPage() {
       }
     }
 
+    // پرداخت آنلاین: کاربر را به درگاه زرین‌پال هدایت می‌کنیم
+    if (paymentMethod === 'online') {
+      const orderIds = (insertRes.data || []).map((o: any) => o.id);
+
+      try {
+        const payRes = await fetch('/api/payment/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderIds,
+            amountToman: total,
+            mobile: phone,
+            description: `پرداخت سفارش ویرا - ${fullName}`,
+          }),
+        });
+
+        const payData = await payRes.json();
+
+        if (payData.url) {
+          // توجه: سبد خرید عمداً اینجا پاک نمی‌شود؛ بعد از تایید موفق پرداخت پاک می‌شود
+          window.location.href = payData.url;
+          return;
+        }
+
+        setError(payData.error || 'خطا در اتصال به درگاه پرداخت');
+        setSubmitting(false);
+        return;
+
+      } catch (err) {
+        setError('خطا در اتصال به درگاه پرداخت. لطفاً دوباره تلاش کنید.');
+        setSubmitting(false);
+        return;
+      }
+    }
+
+    // پرداخت در محل: همینجا سفارش را نهایی می‌کنیم
     await supabase.from('cart_items').delete().eq('user_id', user!.id);
     setDone(true);
     setSubmitting(false);
@@ -413,7 +456,7 @@ export default function CartPage() {
                 disabled={submitting}
                 style={{width:"100%", background:"#16a34a", color:"white", padding:"14px", borderRadius:"10px", border:"none", cursor:"pointer", fontSize:"16px", fontWeight:"bold", opacity: submitting ? 0.5 : 1}}
               >
-                {submitting ? strings.submitting_label : strings.checkout_btn}
+                {submitting ? strings.submitting_label : (paymentMethod === 'online' ? 'پرداخت و ثبت سفارش' : strings.checkout_btn)}
               </button>
             </div>
           </div>

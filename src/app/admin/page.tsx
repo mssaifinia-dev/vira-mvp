@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { strings } from '@/lib/strings';
 import ZoomableImage from '@/components/ZoomableImage';
+import { sendSms } from '@/lib/sms';
 
 type Seller = { id: string; shop_name: string; phone: string; city: string; is_approved: boolean; };
 type Product = { id: string; name: string; category: string; price: number; stock: number; };
@@ -78,28 +79,58 @@ export default function AdminPanel() {
     setLoading(false);
   }
 
-  async function approveSeller(id: string) { await supabase.from('sellers').update({ is_approved: true }).eq('id', id); fetchData(); }
+  async function approveSeller(id: string) {
+    await supabase.from('sellers').update({ is_approved: true }).eq('id', id);
+    const sellerRes = await supabase.from('sellers').select('phone').eq('id', id).single();
+    if (sellerRes.data?.phone) {
+      sendSms(sellerRes.data.phone, 'ویرا: حساب فروشندگی شما تایید شد. اکنون می‌توانید محصولات خود را ثبت کنید.');
+    }
+    fetchData();
+  }
   async function deleteSeller(id: string) { await supabase.from('sellers').delete().eq('id', id); fetchData(); }
   async function deleteProduct(id: string) { await supabase.from('products').delete().eq('id', id); fetchData(); }
 
   async function updateOrderStatus(id: string, status: string) {
-    const orderRes = await supabase.from('orders').select('user_id, full_name').eq('id', id).single();
+    const orderRes = await supabase.from('orders').select('user_id, full_name, phone').eq('id', id).single();
     await supabase.from('orders').update({ status }).eq('id', id);
 
     if (orderRes.data) {
       const statusText = statusMap[status] || status;
+
       await supabase.from('notifications').insert({
         user_id: orderRes.data.user_id,
         title: 'وضعیت سفارش تغییر کرد',
         message: 'وضعیت سفارش شما به "' + statusText + '" تغییر یافت',
         link: '/my-requests',
       });
+
+      if (orderRes.data.phone) {
+        try {
+          await fetch('/api/sms/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              mobile: orderRes.data.phone,
+              message: 'ویرا: وضعیت سفارش شما به "' + statusText + '" تغییر یافت.',
+            }),
+          });
+        } catch (e) {
+          console.log('SMS send failed', e);
+        }
+      }
     }
 
     fetchData();
   }
 
-  async function approveTechnician(id: string) { await supabase.from('technicians').update({ is_approved: true }).eq('id', id); fetchData(); }
+  async function approveTechnician(id: string) {
+    await supabase.from('technicians').update({ is_approved: true }).eq('id', id);
+    const techRes = await supabase.from('technicians').select('phone').eq('id', id).single();
+    if (techRes.data?.phone) {
+      sendSms(techRes.data.phone, 'ویرا: حساب تکنسینی شما تایید شد. اکنون می‌توانید درخواست‌های سرویس را دریافت کنید.');
+    }
+    fetchData();
+  }
   async function deleteTechnician(id: string) { await supabase.from('technicians').delete().eq('id', id); fetchData(); }
 
   if (loading) return (

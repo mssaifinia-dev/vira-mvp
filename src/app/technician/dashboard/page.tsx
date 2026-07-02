@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { sendSms } from '@/lib/sms';
 
 type Technician = {
   id: string;
@@ -89,7 +90,7 @@ export default function TechnicianDashboard() {
 
     const reqInfo = await supabase
       .from('service_requests')
-      .select('customer_id')
+      .select('customer_id, phone')
       .eq('id', requestId)
       .single();
 
@@ -110,6 +111,13 @@ export default function TechnicianDashboard() {
         message: technician!.full_name + ' درخواست شما را قبول کرد و تا ' + eta + ' دقیقه دیگر می‌رسد',
         link: '/technician/track/' + requestId,
       });
+
+      if (reqInfo.data.phone) {
+        sendSms(
+          reqInfo.data.phone,
+          'ویرا: تکنسین ' + technician!.full_name + ' درخواست شما را قبول کرد و تا حدود ' + eta + ' دقیقه دیگر می‌رسد.'
+        );
+      }
     }
 
     fetchRequests();
@@ -118,7 +126,7 @@ export default function TechnicianDashboard() {
   async function startWork(requestId: string) {
     const reqInfo = await supabase
       .from('service_requests')
-      .select('customer_id')
+      .select('customer_id, phone')
       .eq('id', requestId)
       .single();
 
@@ -134,6 +142,10 @@ export default function TechnicianDashboard() {
         message: 'تکنسین کار روی درخواست شما را شروع کرد',
         link: '/technician/track/' + requestId,
       });
+
+      if (reqInfo.data.phone) {
+        sendSms(reqInfo.data.phone, 'ویرا: تکنسین کار روی درخواست شما را شروع کرد.');
+      }
     }
 
     fetchRequests();
