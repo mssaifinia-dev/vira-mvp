@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import Kavenegar from 'kavenegar';
 
 function isPhoneNumber(val: string) {
   return /^09[0-9]{9}$/.test(val);
@@ -30,23 +29,37 @@ export async function POST(req: NextRequest) {
     }
 
     const message = `ویرا: کد ورود شما ${code} است. این کد تا ۲ دقیقه معتبر است.`;
+const url = `https://api.kavenegar.com/v1/${apiKey}/sms/send.json`;
 
-    const api = new Kavenegar.KavenegarApi({ apikey: apiKey });
+const params = new URLSearchParams({
+  receptor: phone,
+  sender: "2000660110",
+  message,
+});
 
-    try {
-      await api.Send({
-        message: message,
-        receptor: phone,
-      });
+try {
+  const response = await fetch(`${url}?${params.toString()}`, {
+    method: "POST",
+  });
 
-      console.log('SMS Sent Successfully to', phone);
-      return NextResponse.json({ success: true });
+  const smsData = await response.json();
 
-    } catch (smsErr: any) {
-      console.error('Kavenegar SMS Error:', smsErr);
-      return NextResponse.json({ error: smsErr.message || 'ارسال پیامک ناموفق بود' }, { status: 400 });
-    }
+  if (smsData?.return?.status !== 200) {
+    return NextResponse.json(
+      { error: smsData?.return?.message || "ارسال پیامک ناموفق بود" },
+      { status: 400 }
+    );
+  }
 
+  return NextResponse.json({ success: true });
+
+} catch (smsErr: any) {
+  return NextResponse.json(
+    { error: smsErr.message || "خطا در ارتباط با سرویس پیامک" },
+    { status: 500 }
+  );
+}
+  
   } catch (err: any) {
     console.error('OTP Send Error:', err);
     return NextResponse.json({ error: err.message || 'خطای سرور' }, { status: 500 });
