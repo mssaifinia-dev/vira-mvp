@@ -204,15 +204,8 @@ export default async function Home() {
 
 
             <Image
-              src="/vira-logo.png"
-              alt="ویرا"
-              width={150}
-              height={150}
-              style={{objectFit:"contain"}}
-            />
-
-
-          </div>
+            src="/icons/navbar-logo.png" alt="vira" style={{width:"100px", height:"100px"}} />   
+                  </div>
 
 
           <h1 style={{
