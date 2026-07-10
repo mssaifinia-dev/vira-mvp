@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 function gregorianToJalali(gy: number, gm: number, gd: number) {
   const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
@@ -71,6 +72,7 @@ function pad(n: number) {
 }
 
 const jalaliMonths = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
+const COLORS = ['#1e3a8a', '#16a34a', '#f59e0b', '#dc2626', '#8b5cf6', '#0284c7'];
 
 export default function AdminReportsPage() {
   const [loading, setLoading] = useState(true);
@@ -100,6 +102,9 @@ export default function AdminReportsPage() {
 
   const [topSellers, setTopSellers] = useState<any[]>([]);
   const [topTechnicians, setTopTechnicians] = useState<any[]>([]);
+  
+  const [dailyData, setDailyData] = useState<any[]>([]);
+  const [sellerPayouts, setSellerPayouts] = useState<any[]>([]);
 
   const [avgRating, setAvgRating] = useState(0);
   const [ratingCount, setRatingCount] = useState(0);
@@ -161,7 +166,8 @@ export default function AdminReportsPage() {
     let salesSum = 0;
     let commSum = 0;
     let payoutSum = 0;
-    const sellerMap: Record<string, { total: number; commission: number; payout: number }> = {};
+    const sellerMap: Record<string, { total: number; commission: number; payout: number; earned: number }> = {};
+    const dailyMap: Record<string, { sales: number; commission: number; tech: number }> = {};
 
     for (let i = 0; i < orders.length; i++) {
       const o = orders[i];
@@ -169,13 +175,22 @@ export default function AdminReportsPage() {
       commSum += o.commission_amount || 0;
       payoutSum += o.seller_payout || 0;
 
+      // جمع درآمد روزانه
+      const dateKey = o.created_at.substring(0, 10);
+      if (!dailyMap[dateKey]) {
+        dailyMap[dateKey] = { sales: 0, commission: 0, tech: 0 };
+      }
+      dailyMap[dateKey].sales += o.total_price;
+      dailyMap[dateKey].commission += o.commission_amount || 0;
+
       if (o.seller_id) {
         if (!sellerMap[o.seller_id]) {
-          sellerMap[o.seller_id] = { total: 0, commission: 0, payout: 0 };
+          sellerMap[o.seller_id] = { total: 0, commission: 0, payout: 0, earned: 0 };
         }
         sellerMap[o.seller_id].total += o.total_price;
         sellerMap[o.seller_id].commission += o.commission_amount || 0;
         sellerMap[o.seller_id].payout += o.seller_payout || 0;
+        sellerMap[o.seller_id].earned += o.seller_payout || 0;
       }
     }
 
@@ -194,12 +209,37 @@ export default function AdminReportsPage() {
       const topSellersList = sellersData.map((s) => ({
         name: s.shop_name,
         total: sellerMap[s.id]?.total || 0,
-      })).sort((a, b) => b.total - a.total);
+      })).sort((a, b) => b.total - a.total).slice(0, 5);
 
       setTopSellers(topSellersList);
+
+      // درآمد معلق فروشندگان
+      const payoutsList = sellersData
+        .map(s => ({
+          name: s.shop_name,
+          earned: sellerMap[s.id]?.earned || 0,
+          paid: 0, // موقتاً 0، می‌تونید با paid_amount از جدول seller_payouts update کنید
+        }))
+        .filter(p => p.earned > 0)
+        .sort((a, b) => b.earned - a.earned)
+        .slice(0, 10);
+
+      setSellerPayouts(payoutsList);
     } else {
       setTopSellers([]);
+      setSellerPayouts([]);
     }
+
+    // چارت درآمد روزانه
+    const dailyChartData = Object.entries(dailyMap)
+      .map(([date, data]) => ({
+        date: date.substring(5),
+        درآمد: Math.round(data.sales),
+        پورسانت: Math.round(data.commission),
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    setDailyData(dailyChartData);
 
     let serviceQuery = supabase
       .from('service_requests')
@@ -228,14 +268,14 @@ export default function AdminReportsPage() {
 
     for (let i = 0; i < invoices.length; i++) {
       const inv = invoices[i];
-      techCommSum += inv.commission_amount;
-      techPayoutSum += inv.technician_payout;
+      techCommSum += inv.commission_amount || 0;
+      techPayoutSum += inv.technician_payout || 0;
 
       if (inv.technician_id) {
         if (!techMap[inv.technician_id]) {
           techMap[inv.technician_id] = { total: 0 };
         }
-        techMap[inv.technician_id].total += inv.total_amount;
+        techMap[inv.technician_id].total += inv.total_amount || 0;
       }
 
       if (inv.rating !== null && inv.rating !== undefined) {
@@ -245,6 +285,13 @@ export default function AdminReportsPage() {
           lowRatingNum += 1;
         }
       }
+
+      // اضافه کردن به درآمد روزانه
+      const dateKey = inv.created_at.substring(0, 10);
+      if (!dailyMap[dateKey]) {
+        dailyMap[dateKey] = { sales: 0, commission: 0, tech: 0 };
+      }
+      dailyMap[dateKey].tech += inv.total_amount || 0;
     }
 
     setTotalTechCommission(techCommSum);
@@ -265,7 +312,7 @@ export default function AdminReportsPage() {
       const topTechList = techsData.map((t) => ({
         name: t.full_name,
         total: techMap[t.id]?.total || 0,
-      })).sort((a, b) => b.total - a.total);
+      })).sort((a, b) => b.total - a.total).slice(0, 5);
 
       setTopTechnicians(topTechList);
     } else {
@@ -290,6 +337,7 @@ export default function AdminReportsPage() {
   }, [filterActive]);
 
   const totalViraRevenue = totalSellerCommission + totalTechCommission;
+  const totalPending = sellerPayouts.reduce((sum, p) => sum + (p.earned - p.paid), 0);
 
   const yearOptions = [];
   for (let y = nowJy - 3; y <= nowJy + 1; y++) {
@@ -306,11 +354,11 @@ export default function AdminReportsPage() {
 
   return (
     <main style={{minHeight:"100vh", background:"#f3f4f6", padding:"32px 16px"}} dir="rtl">
-      <div style={{maxWidth:"1000px", margin:"0 auto"}}>
+      <div style={{maxWidth:"1200px", margin:"0 auto"}}>
 
         <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"24px"}}>
-          <h1 style={{fontSize:"22px", fontWeight:"bold", color:"#1e3a8a"}}>گزارش‌های کلی ویرا</h1>
-          <a href="/admin" style={{color:"#1e3a8a", fontSize:"14px", textDecoration:"none"}}>← بازگشت به پنل اصلی</a>
+          <h1 style={{fontSize:"22px", fontWeight:"bold", color:"#1e3a8a"}}>📊 گزارش‌های تفصیلی ویرا</h1>
+          <a href="/admin" style={{color:"#1e3a8a", fontSize:"14px", textDecoration:"none"}}>← بازگشت</a>
         </div>
 
         <div style={{background:"white", borderRadius:"12px", padding:"16px", marginBottom:"24px"}}>
@@ -360,9 +408,61 @@ export default function AdminReportsPage() {
         </div>
 
         <div style={{background:"#1e3a8a", borderRadius:"16px", padding:"24px", marginBottom:"24px", textAlign:"center"}}>
-          <p style={{color:"rgba(255,255,255,0.7)", fontSize:"14px", marginBottom:"8px"}}>کل پورسانت دریافتی ویرا (فروشگاه + تکنسین)</p>
+          <p style={{color:"rgba(255,255,255,0.7)", fontSize:"14px", marginBottom:"8px"}}>کل پورسانت دریافتی ویرا</p>
           <p style={{color:"white", fontSize:"32px", fontWeight:"bold"}}>{totalViraRevenue.toLocaleString('fa-IR')} تومان</p>
         </div>
+
+        {/* درآمد روزانه - چارت */}
+        {dailyData.length > 0 && (
+          <div style={{background:"white", borderRadius:"16px", padding:"24px", marginBottom:"24px"}}>
+            <h2 style={{fontWeight:"bold", color:"#1e3a8a", marginBottom:"16px", fontSize:"16px"}}>📈 تجزیه درآمد روزانه</h2>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={dailyData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip formatter={(v) => v.toLocaleString('fa-IR')} />
+                <Legend />
+                <Line type="monotone" dataKey="درآمد" stroke="#16a34a" strokeWidth={2} />
+                <Line type="monotone" dataKey="پورسانت" stroke="#f59e0b" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* درآمد معلق فروشندگان */}
+        {sellerPayouts.length > 0 && (
+          <div style={{background:"white", borderRadius:"16px", padding:"24px", marginBottom:"24px"}}>
+            <h2 style={{fontWeight:"bold", color:"#1e3a8a", marginBottom:"16px", fontSize:"16px"}}>💰 درآمد معلق فروشندگان</h2>
+            
+            <div style={{background:"#fef3c7", borderRadius:"12px", padding:"16px", marginBottom:"16px"}}>
+              <p style={{color:"#92400e", fontWeight:"bold", fontSize:"14px"}}>
+                💼 کل درآمد معلق: {totalPending.toLocaleString('fa-IR')} تومان
+              </p>
+            </div>
+
+            <table style={{width:"100%", borderCollapse:"collapse"}}>
+              <thead>
+                <tr style={{background:"#f3f4f6"}}>
+                  <th style={{padding:"12px", textAlign:"right", fontSize:"14px", fontWeight:"bold"}}>نام فروشنده</th>
+                  <th style={{padding:"12px", textAlign:"right", fontSize:"14px", fontWeight:"bold"}}>درآمد کسب‌شده</th>
+                  <th style={{padding:"12px", textAlign:"right", fontSize:"14px", fontWeight:"bold"}}>پرداخت‌شده</th>
+                  <th style={{padding:"12px", textAlign:"right", fontSize:"14px", fontWeight:"bold"}}>معلق</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sellerPayouts.map((p, i) => (
+                  <tr key={i} style={{borderBottom:"1px solid #e5e7eb"}}>
+                    <td style={{padding:"12px", fontSize:"14px"}}>{p.name}</td>
+                    <td style={{padding:"12px", fontSize:"14px", color:"#16a34a", fontWeight:"bold"}}>{p.earned.toLocaleString('fa-IR')} تومان</td>
+                    <td style={{padding:"12px", fontSize:"14px", color:"#0284c7"}}>{p.paid.toLocaleString('fa-IR')} تومان</td>
+                    <td style={{padding:"12px", fontSize:"14px", color:"#dc2626", fontWeight:"bold"}}>{(p.earned - p.paid).toLocaleString('fa-IR')} تومان</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         <h2 style={{fontWeight:"bold", color:"#1e3a8a", marginBottom:"12px", fontSize:"18px"}}>⭐ رضایتمندی مشتریان</h2>
         <div style={{display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:"12px", marginBottom:"24px"}}>
@@ -380,17 +480,17 @@ export default function AdminReportsPage() {
             <p style={{fontSize:"18px", fontWeight:"bold", color: lowRatingPercent > 20 ? "#dc2626" : "#8b5cf6"}}>
               {lowRatingPercent}%
             </p>
-            <p style={{fontSize:"12px", color:"#6b7280", marginTop:"4px"}}>نارضایتی (امتیاز ۱ یا ۲)</p>
+            <p style={{fontSize:"12px", color:"#6b7280", marginTop:"4px"}}>نارضایتی</p>
           </div>
         </div>
 
-        {lowRatingPercent > 20 && ratingCount >= 3 ? (
+        {lowRatingPercent > 20 && ratingCount >= 3 && (
           <div style={{background:"#fef2f2", border:"1px solid #fecaca", borderRadius:"12px", padding:"16px", marginBottom:"24px"}}>
             <p style={{color:"#dc2626", fontWeight:"bold", fontSize:"14px"}}>
-              ⚠️ هشدار: نرخ نارضایتی بالای ۲۰٪ است. بررسی کیفیت خدمات تکنسین‌ها توصیه می‌شود.
+              ⚠️ هشدار: نرخ نارضایتی بالاست
             </p>
           </div>
-        ) : null}
+        )}
 
         <h2 style={{fontWeight:"bold", color:"#1e3a8a", marginBottom:"12px", fontSize:"18px"}}>📦 فروشگاه</h2>
         <div style={{display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:"12px", marginBottom:"24px"}}>
@@ -400,29 +500,29 @@ export default function AdminReportsPage() {
           </div>
           <div style={{background:"white", borderRadius:"12px", padding:"16px", textAlign:"center"}}>
             <p style={{fontSize:"18px", fontWeight:"bold", color:"#16a34a"}}>{totalSales.toLocaleString('fa-IR')}</p>
-            <p style={{fontSize:"12px", color:"#6b7280", marginTop:"4px"}}>جمع فروش (تومان)</p>
+            <p style={{fontSize:"12px", color:"#6b7280", marginTop:"4px"}}>جمع فروش</p>
           </div>
           <div style={{background:"white", borderRadius:"12px", padding:"16px", textAlign:"center"}}>
             <p style={{fontSize:"18px", fontWeight:"bold", color:"#f59e0b"}}>{totalSellerCommission.toLocaleString('fa-IR')}</p>
-            <p style={{fontSize:"12px", color:"#6b7280", marginTop:"4px"}}>پورسانت ویرا (تومان)</p>
+            <p style={{fontSize:"12px", color:"#6b7280", marginTop:"4px"}}>پورسانت ویرا</p>
           </div>
           <div style={{background:"white", borderRadius:"12px", padding:"16px", textAlign:"center"}}>
             <p style={{fontSize:"18px", fontWeight:"bold", color:"#8b5cf6"}}>{totalSellerPayout.toLocaleString('fa-IR')}</p>
-            <p style={{fontSize:"12px", color:"#6b7280", marginTop:"4px"}}>سهم فروشندگان (تومان)</p>
+            <p style={{fontSize:"12px", color:"#6b7280", marginTop:"4px"}}>سهم فروشندگان</p>
           </div>
         </div>
 
-        {topSellers.length > 0 ? (
+        {topSellers.length > 0 && (
           <div style={{background:"white", borderRadius:"12px", padding:"16px", marginBottom:"24px"}}>
-            <p style={{fontWeight:"bold", marginBottom:"12px", fontSize:"14px"}}>برترین فروشندگان</p>
+            <p style={{fontWeight:"bold", marginBottom:"12px", fontSize:"14px"}}>🌟 برترین فروشندگان</p>
             {topSellers.map((s, i) => (
               <div key={i} style={{display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom: i < topSellers.length - 1 ? "1px solid #f3f4f6" : "none"}}>
-                <span style={{fontSize:"14px"}}>{s.name}</span>
+                <span style={{fontSize:"14px"}}>{i+1}. {s.name}</span>
                 <span style={{fontSize:"14px", fontWeight:"bold", color:"#16a34a"}}>{s.total.toLocaleString('fa-IR')} تومان</span>
               </div>
             ))}
           </div>
-        ) : null}
+        )}
 
         <h2 style={{fontWeight:"bold", color:"#1e3a8a", marginBottom:"12px", fontSize:"18px"}}>🔧 خدمات تکنسین</h2>
         <div style={{display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:"12px", marginBottom:"24px"}}>
@@ -436,25 +536,25 @@ export default function AdminReportsPage() {
           </div>
           <div style={{background:"white", borderRadius:"12px", padding:"16px", textAlign:"center"}}>
             <p style={{fontSize:"18px", fontWeight:"bold", color:"#f59e0b"}}>{totalTechCommission.toLocaleString('fa-IR')}</p>
-            <p style={{fontSize:"12px", color:"#6b7280", marginTop:"4px"}}>پورسانت ویرا (تومان)</p>
+            <p style={{fontSize:"12px", color:"#6b7280", marginTop:"4px"}}>پورسانت ویرا</p>
           </div>
           <div style={{background:"white", borderRadius:"12px", padding:"16px", textAlign:"center"}}>
             <p style={{fontSize:"18px", fontWeight:"bold", color:"#8b5cf6"}}>{totalTechPayout.toLocaleString('fa-IR')}</p>
-            <p style={{fontSize:"12px", color:"#6b7280", marginTop:"4px"}}>سهم تکنسین‌ها (تومان)</p>
+            <p style={{fontSize:"12px", color:"#6b7280", marginTop:"4px"}}>سهم تکنسین‌ها</p>
           </div>
         </div>
 
-        {topTechnicians.length > 0 ? (
+        {topTechnicians.length > 0 && (
           <div style={{background:"white", borderRadius:"12px", padding:"16px"}}>
-            <p style={{fontWeight:"bold", marginBottom:"12px", fontSize:"14px"}}>برترین تکنسین‌ها</p>
+            <p style={{fontWeight:"bold", marginBottom:"12px", fontSize:"14px"}}>🌟 برترین تکنسین‌ها</p>
             {topTechnicians.map((t, i) => (
               <div key={i} style={{display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom: i < topTechnicians.length - 1 ? "1px solid #f3f4f6" : "none"}}>
-                <span style={{fontSize:"14px"}}>{t.name}</span>
+                <span style={{fontSize:"14px"}}>{i+1}. {t.name}</span>
                 <span style={{fontSize:"14px", fontWeight:"bold", color:"#16a34a"}}>{t.total.toLocaleString('fa-IR')} تومان</span>
               </div>
             ))}
           </div>
-        ) : null}
+        )}
 
       </div>
     </main>
