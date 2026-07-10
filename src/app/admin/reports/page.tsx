@@ -421,7 +421,14 @@ export default function AdminReportsPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis />
-                <Tooltip formatter={(v) => v.toLocaleString('fa-IR')} />
+                
+                <Tooltip
+               formatter={(v) =>
+               typeof v === "number" ? v.toLocaleString("fa-IR") : String(v ?? "")
+              }
+              />
+
+
                 <Legend />
                 <Line type="monotone" dataKey="درآمد" stroke="#16a34a" strokeWidth={2} />
                 <Line type="monotone" dataKey="پورسانت" stroke="#f59e0b" strokeWidth={2} />
