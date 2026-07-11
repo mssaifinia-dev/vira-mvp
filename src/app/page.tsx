@@ -88,7 +88,7 @@ export default async function Home() {
 
 
             <Image
-              src="/vira-logo.png"
+              src="/vira-logov1.png"
               alt="ویرا"
               width={150}
               height={150}
