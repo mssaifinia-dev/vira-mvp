@@ -2,122 +2,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-type Alignment = 'right' | 'left' | 'center' | 'full';
-
-type Advertisement = {
-  id: string;
-  title: string;
-  image_url: string;
-  link_url: string;
-  position: string;
-  active: boolean;
-  sort_order: number;
-  alignment: Alignment;
-};
-
-function renderAd(ad: Advertisement) {
-  return (
-    <a
-      href={ad.link_url || "#"}
-      style={{
-        display: "block",
-        background: "white",
-        borderRadius: "16px",
-        overflow: "hidden",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-      }}
-    >
-      {ad.image_url ? (
-        <img
-          src={ad.image_url}
-          alt={ad.title}
-          style={{
-            width: "100%",
-            height: "250px",
-            objectFit: "contain",
-            background: "#f9fafb",
-          }}
-        />
-      ) : (
-        <div style={{
-          padding: "25px",
-          textAlign: "center",
-          fontWeight: "bold",
-          color: "#1e3a8a",
-          fontSize: "18px",
-        }}>
-          {ad.title}
-        </div>
-      )}
-    </a>
-  );
-}
-
-function renderAdRows(ads: Advertisement[]) {
-  const rows: React.ReactNode[] = [];
-  let i = 0;
-  let key = 0;
-
-  while (i < ads.length) {
-    const current = ads[i];
-
-    if (current.alignment === 'right' || current.alignment === 'left') {
-      const next = ads[i + 1];
-      const pairs =
-        next && (next.alignment === 'right' || next.alignment === 'left') && next.alignment !== current.alignment
-          ? [current, next]
-          : [current];
-
-      pairs.sort((a, b) => (a.alignment === 'right' ? -1 : 1));
-
-      const isSolo = pairs.length === 1;
-      const soloAlignment = isSolo ? pairs[0].alignment : null;
-
-      rows.push(
-        <div
-          key={key++}
-          style={{
-            display: 'flex',
-            gap: '20px',
-            flexWrap: 'wrap',
-            marginBottom: '20px',
-            justifyContent: isSolo
-              ? soloAlignment === 'right' ? 'flex-start' : 'flex-end'
-              : 'space-between',
-            width: '100%',
-          }}
-        >
-          {pairs.map((ad) => (
-            <div key={ad.id} style={isSolo ? { flex: '0 1 46%', minWidth: '250px' } : { flex: '1 1 280px', minWidth: '250px' }}>
-              {renderAd(ad)}
-            </div>
-          ))}
-        </div>
-      );
-      i += pairs.length;
-    } else if (current.alignment === 'center') {
-      rows.push(
-        <div key={key++} style={{ maxWidth: '500px', margin: '0 auto 20px auto' }}>
-          {renderAd(current)}
-        </div>
-      );
-      i += 1;
-    } else {
-      rows.push(
-        <div key={key++} style={{ marginBottom: '20px' }}>
-          {renderAd(current)}
-        </div>
-      );
-      i += 1;
-    }
-  }
-
-  return rows;
-}
-
 export default async function Home() {
 
   const { data: advertisements } = await supabase
@@ -125,7 +9,7 @@ export default async function Home() {
     .select("*")
     .eq("active", true)
     .eq("position", "home_top")
-    .order("sort_order", { ascending: true });
+    .order("created_at", { ascending: false });
 
 
   return (
@@ -204,8 +88,15 @@ export default async function Home() {
 
 
             <Image
-            src="/icons/navbar-logo.png" alt="vira" style={{width:"100px", height:"100px"}} />   
-                  </div>
+              src="/vira-logo.png"
+              alt="ویرا"
+              width={150}
+              height={150}
+              style={{objectFit:"contain"}}
+            />
+
+
+          </div>
 
 
           <h1 style={{
@@ -233,8 +124,55 @@ export default async function Home() {
 
       {advertisements && advertisements.length > 0 && (
 
-        <section style={{ width: '100%', padding: '40px 24px 0 24px', boxSizing: 'border-box' }}>
-          {renderAdRows(advertisements as Advertisement[])}
+        <section className="max-w-5xl mx-auto px-4 pt-10">
+
+          {advertisements.map((ad) => (
+
+            <a
+              key={ad.id}
+              href={ad.link_url || "#"}
+              style={{
+                display:"block",
+                background:"white",
+                borderRadius:"16px",
+                overflow:"hidden",
+                marginBottom:"20px",
+                boxShadow:"0 4px 12px rgba(0,0,0,0.08)"
+              }}
+            >
+
+              {ad.image_url ? (
+
+                <img
+                  src={ad.image_url}
+                  alt={ad.title}
+                  style={{
+                    width:"100%",
+                    maxHeight:"250px",
+                    objectFit:"cover"
+                  }}
+                />
+
+              ) : (
+
+                <div style={{
+                  padding:"25px",
+                  textAlign:"center",
+                  fontWeight:"bold",
+                  color:"#1e3a8a",
+                  fontSize:"18px"
+                }}>
+
+                  {ad.title}
+
+                </div>
+
+              )}
+
+            </a>
+
+          ))}
+
         </section>
 
       )}
