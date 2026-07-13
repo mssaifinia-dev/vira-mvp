@@ -108,7 +108,7 @@ export default function AcademyPage() {
                       border: '1px solid #e5e7eb',
                       cursor: 'pointer',
                       transition: 'all 0.3s',
-                      ':hover': { background: '#f0f9ff', borderColor: '#1e3a8a' }
+                    
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background = '#f0f9ff';
