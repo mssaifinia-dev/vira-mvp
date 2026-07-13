@@ -130,14 +130,12 @@ export default async function Home() {
   return (
     <main className="min-h-screen bg-gray-100" dir="rtl">
 
-
       <section style={{
         background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)",
         position:"relative",
         overflow:"hidden",
         padding:"64px 24px"
       }}>
-
 
         <svg width="100%" height="100%" viewBox="0 0 700 340"
           style={{
@@ -164,7 +162,6 @@ export default async function Home() {
 
         </svg>
 
-
         <div style={{
           position:"absolute",
           right:"24px",
@@ -182,13 +179,11 @@ export default async function Home() {
 
         </div>
 
-
         <div style={{
           position:"relative",
           zIndex:2,
           textAlign:"center"
         }}>
-
 
           <div style={{
             width:"200px",
@@ -209,7 +204,6 @@ export default async function Home() {
 
           </div>
 
-
           <h1 style={{
             color:"white",
             fontSize:"60px",
@@ -218,107 +212,84 @@ export default async function Home() {
             تامین ارتباط ویرا
           </h1>
 
+          <p style={{
+            color:"rgba(255,255,255,0.85)",
+            fontSize:"20px",
+            marginTop:"12px",
+            fontWeight:"600"
+          }}>
+            ویرا؛ مرجع هوشمند ارتباطات، آموزش، تجهیزات و خدمات فناوری ایران
+          </p>
 
           <p style={{
-            color:"rgba(255,255,255,0.75)",
-            fontSize:"30px"
+            color:"rgba(255,255,255,0.7)",
+            fontSize:"16px",
+            marginTop:"8px"
           }}>
             فیبر نوری، خودرو، خانه هوشمند و خدمات فنی
           </p>
 
-
         </div>
-
 
       </section>
 
-
       {advertisements && advertisements.length > 0 && (
-
         <section style={{ width: '100%', padding: '40px 24px 0 24px', boxSizing: 'border-box' }}>
           {renderAdRows(advertisements as Advertisement[])}
         </section>
-
       )}
 
+      <section className="max-w-7xl mx-auto px-4 py-16">
 
-
-      <section className="max-w-5xl mx-auto px-4 py-16">
-
-        <div className="grid md:grid-cols-3 gap-8">
-
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+          gap: "24px"
+        }}>
 
           <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
-
-            <h2 className="text-2xl font-bold text-blue-900">
-              فروشگاه تجهیزات
-            </h2>
-
-
-            <p className="mt-4 text-gray-600">
-              مودم فیبر نوری، پچ کورد، پیگتیل، تجهیزات شبکه، دوربین مداربسته و خانه هوشمند
-            </p>
-
-
-            <Link
-              href="/marketplace"
-              className="inline-block mt-5 bg-blue-900 text-white px-6 py-2 rounded-lg"
-            >
+            <h2 className="text-2xl font-bold text-blue-900">🛍️ فروشگاه</h2>
+            <p className="mt-4 text-gray-600">مودم فیبر نوری، پچ کورد، پیگتیل، تجهیزات شبکه، دوربین و خانه هوشمند</p>
+            <Link href="/marketplace" className="inline-block mt-5 bg-blue-900 text-white px-6 py-2 rounded-lg">
               ورود به فروشگاه
             </Link>
-
           </div>
-
-
 
           <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
-
-            <h2 className="text-2xl font-bold text-blue-900">
-              درخواست تکنسین
-            </h2>
-
-
-            <p className="mt-4 text-gray-600">
-              ثبت خرابی اینترنت، شبکه، برق و خانه هوشمند و اعزام نزدیک‌ترین تکنسین
-            </p>
-
-
-            <Link
-              href="/technician"
-              className="inline-block mt-5 bg-blue-900 text-white px-6 py-2 rounded-lg"
-            >
+            <h2 className="text-2xl font-bold text-blue-900">🔧 تکنسین</h2>
+            <p className="mt-4 text-gray-600">ثبت خرابی اینترنت، شبکه، برق و خانه هوشمند و اعزام تکنسین</p>
+            <Link href="/technician" className="inline-block mt-5 bg-blue-900 text-white px-6 py-2 rounded-lg">
               ثبت درخواست
             </Link>
-
-
           </div>
-                    <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
 
-            <h2 className="text-2xl font-bold text-blue-900">
-              فروشندگان استوک
-            </h2>
-
-
-            <p className="mt-4 text-gray-600">
-              فروش تجهیزات نو و استوک توسط همکاران و فروشندگان سراسر کشور
-            </p>
-
-
-            <Link
-              href="/seller/register"
-              className="inline-block mt-5 bg-blue-900 text-white px-6 py-2 rounded-lg"
-            >
+          <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
+            <h2 className="text-2xl font-bold text-blue-900">👥 فروشندگان</h2>
+            <p className="mt-4 text-gray-600">فروش تجهیزات نو و استوک توسط همکاران سراسر کشور</p>
+            <Link href="/seller/register" className="inline-block mt-5 bg-blue-900 text-white px-6 py-2 rounded-lg">
               مشاهده فروشندگان
             </Link>
-
-
           </div>
 
+          <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
+            <h2 className="text-2xl font-bold text-blue-900">📚 آکادمی ویرا</h2>
+            <p className="mt-4 text-gray-600">آموزش‌های آنلاین، وبینارها و دوره‌های تخصصی درباره فناوری</p>
+            <Link href="/academy" className="inline-block mt-5 bg-blue-900 text-white px-6 py-2 rounded-lg">
+              بازدید آکادمی
+            </Link>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
+            <h2 className="text-2xl font-bold text-blue-900">🤖 Vira AI</h2>
+            <p className="mt-4 text-gray-600">دستیار هوشمند برای پاسخ‌دهی 24/7 و حل مسائل فوری</p>
+            <Link href="/ai-assistant" className="inline-block mt-5 bg-blue-900 text-white px-6 py-2 rounded-lg">
+              چت با AI
+            </Link>
+          </div>
 
         </div>
 
       </section>
-
 
     </main>
   );

@@ -25,43 +25,27 @@ export async function POST(req: NextRequest) {
     const apiKey = process.env.KAVENEGAR_API_KEY;
 
     if (!apiKey) {
-      return NextResponse.json({ error: 'سرویس پیامک هنوز تنظیم نشده است' }, { status: 500 });
+      return NextResponse.json({ error: 'سرویس پیامک تنظیم نشده' }, { status: 500 });
     }
 
-    const message = `ویرا: کد ورود شما ${code} است. این کد تا ۲ دقیقه معتبر است.`;
-const url = `https://api.kavenegar.com/v1/${apiKey}/sms/send.json`;
+    const message = `کد ورود: ${code}`;
+    const url = `https://api.kavenegar.com/v1/${apiKey}/sms/send.json`;
 
-const params = new URLSearchParams({
-  receptor: phone,
-  sender: "2000660110",
-  message,
-});
+    const params = new URLSearchParams();
+    params.append('receptor', phone);
+    params.append('message', message);
 
-try {
-  const response = await fetch(`${url}?${params.toString()}`, {
-    method: "POST",
-  });
+    const response = await fetch(`${url}?${params.toString()}`, { method: 'POST' });
+    const smsData = await response.json();
 
-  const smsData = await response.json();
+    if (!smsData.return || smsData.return.status !== 200) {
+      return NextResponse.json({ error: smsData.return.message || 'ارسال ناموفق' }, { status: 400 });
+    }
 
-  if (smsData?.return?.status !== 200) {
-    return NextResponse.json(
-      { error: smsData?.return?.message || "ارسال پیامک ناموفق بود" },
-      { status: 400 }
-    );
-  }
+    return NextResponse.json({ success: true });
 
-  return NextResponse.json({ success: true });
-
-} catch (smsErr: any) {
-  return NextResponse.json(
-    { error: smsErr.message || "خطا در ارتباط با سرویس پیامک" },
-    { status: 500 }
-  );
-}
-  
   } catch (err: any) {
-    console.error('OTP Send Error:', err);
-    return NextResponse.json({ error: err.message || 'خطای سرور' }, { status: 500 });
+    console.error('OTP Error:', err);
+    return NextResponse.json({ error: 'خطا در ارسال کد' }, { status: 500 });
   }
 }
