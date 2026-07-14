@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
@@ -107,6 +108,10 @@ export default function FinancePage() {
   return (
     <main style={{minHeight:"100vh", background:"#f3f4f6", padding:"32px 16px"}} dir="rtl">
       <div style={{maxWidth:"1000px", margin:"0 auto"}}>
+
+        <Link href="/admin" style={{ color: '#1e3a8a', fontSize: '14px', textDecoration: 'none', marginBottom: '16px', display: 'inline-block' }}>
+          ← بازگشت به پنل ادمین
+        </Link>
 
         <h1 style={{fontSize:"28px", fontWeight:"bold", color:"#1e3a8a", marginBottom:"24px"}}>
           📊 گزارش مالی

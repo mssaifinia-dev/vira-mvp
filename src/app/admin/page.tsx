@@ -40,6 +40,19 @@ const iranCitiesList = [
   'سمنان', 'یاسوج',
 ];
 
+const managementLinks = [
+  { href: '/admin/reports', icon: '📊', title: 'گزارش‌های کلی', color: '#16a34a' },
+  { href: '/admin/support', icon: '💬', title: 'پیام‌های پشتیبانی', color: '#1e3a8a' },
+  { href: '/admin/customers', icon: '🗂️', title: 'بایگانی مشتریان', color: '#8b5cf6' },
+  { href: '/admin/discounts', icon: '🎟️', title: 'کدهای تخفیف', color: '#dc2626' },
+  { href: '/admin/finance', icon: '💰', title: 'سود و زیان', color: '#7c3aed' },
+  { href: '/admin/inventory', icon: '📦', title: 'مدیریت انبار', color: '#f59e0b' },
+  { href: '/admin/advertisements', icon: '📢', title: 'تبلیغات', color: '#f59e0b' },
+  { href: '/admin/about', icon: 'ℹ️', title: 'درباره ما', color: '#0891b2' },
+  { href: '/admin/manage-academy', icon: '📚', title: 'آکادمی ویرا', color: '#0d9488' },
+  { href: '/admin/manage-ai', icon: '🤖', title: 'Vira AI', color: '#4f46e5' },
+];
+
 export default function AdminPanel() {
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -158,38 +171,37 @@ export default function AdminPanel() {
 
   return (
     <main style={{minHeight:"100vh", background:"#f3f4f6", padding:"32px 16px"}} dir="rtl">
-      <div style={{maxWidth:"1000px", margin:"0 auto"}}>
+      <div style={{maxWidth:"1100px", margin:"0 auto"}}>
 
-        <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"24px", flexWrap:"wrap", gap:"12px"}}>
-          <h1 style={{fontSize:"22px", fontWeight:"bold", color:"#1e3a8a"}}>{strings.admin_panel}</h1>
-          <div style={{display:"flex", gap:"8px", flexWrap:"wrap"}}>
-            <a href="/admin/reports" style={{background:"#16a34a", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
-              گزارش‌های کلی
+        <h1 style={{fontSize:"24px", fontWeight:"bold", color:"#1e3a8a", marginBottom:"24px"}}>{strings.admin_panel}</h1>
+
+        {/* کارت‌های مدیریتی */}
+        <div style={{
+          display:"grid",
+          gridTemplateColumns:"repeat(auto-fit, minmax(180px, 1fr))",
+          gap:"16px",
+          marginBottom:"32px"
+        }}>
+          {managementLinks.map((link, i) => (
+            <a key={i} href={link.href} style={{textDecoration:"none"}}>
+              <div style={{
+                background:"white",
+                borderRadius:"14px",
+                padding:"20px",
+                textAlign:"center",
+                boxShadow:"0 2px 8px rgba(0,0,0,0.08)",
+                borderTop: `4px solid ${link.color}`,
+                cursor:"pointer",
+                height:"100%"
+              }}>
+                <p style={{fontSize:"28px", marginBottom:"8px"}}>{link.icon}</p>
+                <p style={{fontSize:"14px", fontWeight:"bold", color:"#1f2937"}}>{link.title}</p>
+              </div>
             </a>
-            <a href="/admin/support" style={{background:"#1e3a8a", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
-              پیام‌های پشتیبانی
-            </a>
-            <a href="/admin/customers" style={{background:"#8b5cf6", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
-              بایگانی مشتریان
-            </a>
-            <a href="/admin/discounts" style={{background:"#dc2626", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
-              کدهای تخفیف
-            </a>
-            <a href="/admin/finance" style={{background:"#7c3aed", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
-              سود و زیان
-            </a>
-            <a href="/admin/inventory" style={{background:"#f59e0b", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
-              مدیریت انبار
-            </a>
-            <a href="/admin/advertisements" style={{background:"#f59e0b", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
-              تبلیغات
-            </a>
-            <a href="/admin/about" style={{background:"#0891b2", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
-              درباره ما
-            </a>
-          </div>
+          ))}
         </div>
 
+        {/* آمار سریع */}
         <div style={{display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap:"12px", marginBottom:"24px"}}>
           {[
             { label: strings.tab_orders, value: String(orders.length), color: "#1e3a8a" },

@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { strings } from '@/lib/strings';
+import ZoomableImage from '@/components/ZoomableImage';
+import { sendSms } from '@/lib/sms';
 
 type Seller = { id: string; shop_name: string; phone: string; city: string; is_approved: boolean; };
 type Product = { id: string; name: string; category: string; price: number; stock: number; };
 type Order = { id: string; full_name: string; phone: string; quantity: number; total_price: number; status: string; created_at: string; payment_method: string; };
-type Technician = { id: string; full_name: string; phone: string; city: string; specialty: string; national_id: string; experience: string; is_approved: boolean; created_at: string; };
+type Technician = { id: string; full_name: string; phone: string; city: string; specialty: string; national_id: string; experience: string; is_approved: boolean; created_at: string; photo_url: string | null; };
 type ServiceRequest = { id: string; issue_type: string; description: string; address: string; phone: string; status: string; created_at: string; technician_id: string | null; };
 
 const statusMap: Record<string, string> = {
@@ -77,28 +79,58 @@ export default function AdminPanel() {
     setLoading(false);
   }
 
-  async function approveSeller(id: string) { await supabase.from('sellers').update({ is_approved: true }).eq('id', id); fetchData(); }
+  async function approveSeller(id: string) {
+    await supabase.from('sellers').update({ is_approved: true }).eq('id', id);
+    const sellerRes = await supabase.from('sellers').select('phone').eq('id', id).single();
+    if (sellerRes.data?.phone) {
+      sendSms(sellerRes.data.phone, 'ویرا: حساب فروشندگی شما تایید شد. اکنون می‌توانید محصولات خود را ثبت کنید.');
+    }
+    fetchData();
+  }
   async function deleteSeller(id: string) { await supabase.from('sellers').delete().eq('id', id); fetchData(); }
   async function deleteProduct(id: string) { await supabase.from('products').delete().eq('id', id); fetchData(); }
 
   async function updateOrderStatus(id: string, status: string) {
-    const orderRes = await supabase.from('orders').select('user_id, full_name').eq('id', id).single();
+    const orderRes = await supabase.from('orders').select('user_id, full_name, phone').eq('id', id).single();
     await supabase.from('orders').update({ status }).eq('id', id);
 
     if (orderRes.data) {
       const statusText = statusMap[status] || status;
+
       await supabase.from('notifications').insert({
         user_id: orderRes.data.user_id,
         title: 'وضعیت سفارش تغییر کرد',
         message: 'وضعیت سفارش شما به "' + statusText + '" تغییر یافت',
         link: '/my-requests',
       });
+
+      if (orderRes.data.phone) {
+        try {
+          await fetch('/api/sms/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              mobile: orderRes.data.phone,
+              message: 'ویرا: وضعیت سفارش شما به "' + statusText + '" تغییر یافت.',
+            }),
+          });
+        } catch (e) {
+          console.log('SMS send failed', e);
+        }
+      }
     }
 
     fetchData();
   }
 
-  async function approveTechnician(id: string) { await supabase.from('technicians').update({ is_approved: true }).eq('id', id); fetchData(); }
+  async function approveTechnician(id: string) {
+    await supabase.from('technicians').update({ is_approved: true }).eq('id', id);
+    const techRes = await supabase.from('technicians').select('phone').eq('id', id).single();
+    if (techRes.data?.phone) {
+      sendSms(techRes.data.phone, 'ویرا: حساب تکنسینی شما تایید شد. اکنون می‌توانید درخواست‌های سرویس را دریافت کنید.');
+    }
+    fetchData();
+  }
   async function deleteTechnician(id: string) { await supabase.from('technicians').delete().eq('id', id); fetchData(); }
 
   if (loading) return (
@@ -143,11 +175,26 @@ export default function AdminPanel() {
             <a href="/admin/discounts" style={{background:"#dc2626", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
               کدهای تخفیف
             </a>
-           <a href="/admin/finance" style={{background:"#7c3aed", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
+            <a href="/admin/finance" style={{background:"#7c3aed", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
               سود و زیان
             </a>
             <a href="/admin/inventory" style={{background:"#f59e0b", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
               مدیریت انبار
+            </a>
+            <a href="/admin/advertisements" style={{background:"#f59e0b", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
+              تبلیغات
+            </a>
+            <a href="/admin/about" style={{background:"#0891b2", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
+              درباره ما
+            </a>
+            <a href="/admin/manage-features" style={{background:"#1e3a8a", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px", border:"2px solid #fbbf24"}}>
+              ⚙️ مدیریت فیچرها
+            </a>
+            <a href="/admin/manage-academy" style={{background:"#0d9488", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
+              📚 آکادمی
+            </a>
+            <a href="/admin/manage-ai" style={{background:"#4f46e5", color:"white", textDecoration:"none", padding:"8px 16px", borderRadius:"8px", fontSize:"14px"}}>
+              🤖 Vira AI
             </a>
           </div>
         </div>
@@ -252,6 +299,7 @@ export default function AdminPanel() {
               <table style={{width:"100%", borderCollapse:"collapse", textAlign:"right"}}>
                 <thead style={{background:"#1e3a8a", color:"white"}}>
                   <tr>
+                    <th style={{padding:"12px"}}></th>
                     <th style={{padding:"12px"}}>{strings.col_name}</th>
                     <th style={{padding:"12px"}}>{strings.col_phone}</th>
                     <th style={{padding:"12px"}}>{strings.col_city}</th>
@@ -263,9 +311,18 @@ export default function AdminPanel() {
                 </thead>
                 <tbody>
                   {filteredTechnicians.length === 0 ? (
-                    <tr><td colSpan={7} style={{padding:"32px", textAlign:"center", color:"#9ca3af"}}>{strings.no_data_technicians}</td></tr>
+                    <tr><td colSpan={8} style={{padding:"32px", textAlign:"center", color:"#9ca3af"}}>{strings.no_data_technicians}</td></tr>
                   ) : filteredTechnicians.map(t => (
                     <tr key={t.id} style={{borderBottom:"1px solid #f3f4f6"}}>
+                      <td style={{padding:"12px"}}>
+                        {t.photo_url ? (
+                          <ZoomableImage src={t.photo_url} alt={t.full_name} size={40} />
+                        ) : (
+                          <div style={{width:"40px", height:"40px", borderRadius:"50%", background:"#e0e7ff", color:"#1e3a8a", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:"bold", fontSize:"14px"}}>
+                            {t.full_name?.charAt(0) || '?'}
+                          </div>
+                        )}
+                      </td>
                       <td style={{padding:"12px", fontWeight:"bold"}}>{t.full_name}</td>
                       <td style={{padding:"12px", color:"#6b7280"}}>{t.phone}</td>
                       <td style={{padding:"12px", color:"#6b7280"}}>{t.city}</td>
