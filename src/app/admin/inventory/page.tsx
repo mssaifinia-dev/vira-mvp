@@ -79,17 +79,30 @@ export default function AdminInventoryPage() {
   }
 
   function downloadTemplate() {
-    let csv = 'نام محصول,قیمت جدید,موجودی جدید\n';
-    for (let i = 0; i < products.length; i++) {
-      csv += products[i].name + ',' + products[i].price + ',' + products[i].stock + '\n';
-    }
+    const data = products.map(p => ({
+      'نام محصول': p.name,
+      'قیمت جدید': p.price,
+      'موجودی جدید': p.stock,
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'محصولات');
+    XLSX.writeFile(workbook, 'vira-inventory-template.xlsx');
+  }
 
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'vira-inventory-template.csv';
-    link.click();
+  function downloadNewProductTemplate() {
+    const data = [{
+      name: 'نمونه محصول',
+      category: 'دسته‌بندی',
+      description: 'توضیحات محصول',
+      price: 150000,
+      stock: 10,
+      image: '',
+    }];
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'محصولات جدید');
+    XLSX.writeFile(workbook, 'vira-new-products-template.xlsx');
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -100,95 +113,101 @@ export default function AdminInventoryPage() {
     setError('');
     setMessage('');
 
-    const text = await file.text();
-    const lines = text.split('\n').filter(l => l.trim() !== '');
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer);
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<any>(sheet);
 
-    if (lines.length < 2) {
-      setError('فایل خالی است یا فرمت آن درست نیست');
-      setUploading(false);
-      return;
-    }
-
-    let updatedCount = 0;
-    let notFoundCount = 0;
-
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(',');
-      if (cols.length < 3) continue;
-
-      const productName = cols[0].trim().replace(/^\uFEFF/, '');
-      const newPrice = Number(cols[1].trim());
-      const newStock = Number(cols[2].trim());
-
-      if (!productName || isNaN(newPrice) || isNaN(newStock)) continue;
-
-      const matchingProduct = products.find(p => p.name.trim() === productName);
-
-      if (matchingProduct) {
-        await supabase.from('products').update({ price: newPrice, stock: newStock }).eq('id', matchingProduct.id);
-        updatedCount++;
-      } else {
-        notFoundCount++;
+      if (rows.length === 0) {
+        setError('فایل خالی است یا فرمت آن درست نیست');
+        setUploading(false);
+        return;
       }
+
+      let updatedCount = 0;
+      let notFoundCount = 0;
+
+      for (const row of rows) {
+        const productName = String(row['نام محصول'] || '').trim();
+        const newPrice = Number(row['قیمت جدید']);
+        const newStock = Number(row['موجودی جدید']);
+
+        if (!productName || isNaN(newPrice) || isNaN(newStock)) continue;
+
+        const matchingProduct = products.find(p => p.name.trim() === productName);
+
+        if (matchingProduct) {
+          await supabase.from('products').update({ price: newPrice, stock: newStock }).eq('id', matchingProduct.id);
+          updatedCount++;
+        } else {
+          notFoundCount++;
+        }
+      }
+
+      setMessage(updatedCount + ' محصول بروزرسانی شد' + (notFoundCount > 0 ? '، ' + notFoundCount + ' مورد یافت نشد' : ''));
+      fetchProducts();
+
+    } catch {
+      setError('خواندن فایل مشکل داشت');
     }
 
-    setMessage(updatedCount + ' محصول بروزرسانی شد' + (notFoundCount > 0 ? '، ' + notFoundCount + ' مورد یافت نشد' : ''));
     setUploading(false);
-    fetchProducts();
     e.target.value = '';
   }
-async function handleExcelImport(e: React.ChangeEvent<HTMLInputElement>) {
-  const file = e.target.files?.[0];
-  if (!file) return;
 
-  setExcelUploading(true);
-  setError('');
-  setMessage('');
+  async function handleExcelImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  try {
-    const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer);
+    setExcelUploading(true);
+    setError('');
+    setMessage('');
 
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json<any>(sheet);
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer);
 
-    let success = 0;
-    let failed = 0;
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<any>(sheet);
 
-    for (const row of rows) {
-      if (!row.name || !row.price) {
-        failed++;
-        continue;
+      let success = 0;
+      let failed = 0;
+
+      for (const row of rows) {
+        if (!row.name || !row.price) {
+          failed++;
+          continue;
+        }
+
+        const { error } = await supabase
+          .from('products')
+          .insert({
+            name: row.name,
+            category: row.category || 'other',
+            description: row.description || '',
+            price: Number(row.price),
+            stock: Number(row.stock || 0),
+            image: row.image || ''
+          });
+
+        if (error) {
+          failed++;
+        } else {
+          success++;
+        }
       }
 
-      const { error } = await supabase
-        .from('products')
-        .insert({
-          name: row.name,
-          category: row.category || 'other',
-          description: row.description || '',
-          price: Number(row.price),
-          stock: Number(row.stock || 0),
-          image: row.image || ''
-        });
+      setMessage(`${success} محصول جدید ثبت شد${failed ? `، ${failed} مورد خطا داشت` : ''}`);
+      fetchProducts();
 
-      if (error) {
-        failed++;
-      } else {
-        success++;
-      }
+    } catch {
+      setError('خواندن فایل اکسل مشکل داشت');
     }
 
-    setMessage(`${success} محصول جدید ثبت شد${failed ? `، ${failed} مورد خطا داشت` : ''}`);
-    fetchProducts();
-
-  } catch {
-    setError('خواندن فایل اکسل مشکل داشت');
+    setExcelUploading(false);
+    e.target.value = '';
   }
-
-  setExcelUploading(false);
-  e.target.value = '';
-}
 
   if (loading) {
     return (
@@ -203,13 +222,15 @@ async function handleExcelImport(e: React.ChangeEvent<HTMLInputElement>) {
       <div style={{maxWidth:"900px", margin:"0 auto"}}>
 
         <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"24px"}}>
-          <h1 style={{fontSize:"22px", fontWeight:"bold", color:"#1e3a8a"}}>مدیریت انبار و قیمت‌ها</h1>                   <a href="/admin" style={{color:"#1e3a8a", fontSize:"14px", textDecoration:"none"}}>← بازگشت به پنل اصلی</a>
-                  </div>
+          <h1 style={{fontSize:"22px", fontWeight:"bold", color:"#1e3a8a"}}>مدیریت انبار و قیمت‌ها</h1>
+          <a href="/admin" style={{color:"#1e3a8a", fontSize:"14px", textDecoration:"none"}}>← بازگشت به پنل اصلی</a>
+        </div>
 
-        <div style={{background:"white", borderRadius:"12px", padding:"20px", marginBottom:"24px"}}>
-          <p style={{fontWeight:"bold", marginBottom:"12px", fontSize:"14px"}}>بروزرسانی گروهی با فایل اکسل (CSV)</p>
+        {/* بروزرسانی قیمت/موجودی محصولات موجود */}
+        <div style={{background:"white", borderRadius:"12px", padding:"20px", marginBottom:"16px"}}>
+          <p style={{fontWeight:"bold", marginBottom:"12px", fontSize:"14px"}}>۱. بروزرسانی گروهی قیمت/موجودی (محصولات موجود)</p>
           <p style={{color:"#6b7280", fontSize:"13px", marginBottom:"16px"}}>
-            ابتدا فایل نمونه را دانلود کن، قیمت و موجودی را در اکسل ویرایش کن، ذخیره کن (با فرمت CSV)، و دوباره آپلود کن.
+            ابتدا فایل نمونه را دانلود کن، قیمت و موجودی را در اکسل ویرایش کن و دوباره همون فایل اکسل رو آپلود کن (بدون نیاز به تبدیل فرمت).
           </p>
 
           <div style={{display:"flex", gap:"12px", flexWrap:"wrap", alignItems:"center"}}>
@@ -221,19 +242,36 @@ async function handleExcelImport(e: React.ChangeEvent<HTMLInputElement>) {
             </button>
 
             <label style={{background:"#1e3a8a", color:"white", borderRadius:"8px", padding:"10px 20px", cursor:"pointer", fontSize:"13px"}}>
-             <label style={{background:"#7c3aed", color:"white", borderRadius:"8px", padding:"10px 20px", cursor:"pointer", fontSize:"13px"}}>
-  {excelUploading ? 'در حال ثبت...' : 'ورود محصولات جدید Excel'}
-  <input 
-    type="file"
-    accept=".xlsx,.xls"
-    onChange={handleExcelImport}
-    disabled={excelUploading}
-    style={{display:"none"}}
-  />
-</label>
-            
-              {uploading ? 'در حال آپلود...' : 'آپلود فایل CSV'}
-              <input type="file" accept=".csv" onChange={handleFileUpload} disabled={uploading} style={{display:"none"}} />
+              {uploading ? 'در حال آپلود...' : 'آپلود فایل اکسل'}
+              <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileUpload} disabled={uploading} style={{display:"none"}} />
+            </label>
+          </div>
+        </div>
+
+        {/* ورود محصولات جدید با اکسل */}
+        <div style={{background:"white", borderRadius:"12px", padding:"20px", marginBottom:"24px"}}>
+          <p style={{fontWeight:"bold", marginBottom:"12px", fontSize:"14px"}}>۲. افزودن محصولات جدید (Excel)</p>
+          <p style={{color:"#6b7280", fontSize:"13px", marginBottom:"16px"}}>
+            فایل اکسل باید ستون‌های name، category، description، price، stock، image داشته باشد. ابتدا فایل نمونه را دانلود کنید.
+          </p>
+
+          <div style={{display:"flex", gap:"12px", flexWrap:"wrap", alignItems:"center"}}>
+            <button
+              onClick={downloadNewProductTemplate}
+              style={{background:"#16a34a", color:"white", border:"none", borderRadius:"8px", padding:"10px 20px", cursor:"pointer", fontSize:"13px"}}
+            >
+              دانلود فایل نمونه (محصول جدید)
+            </button>
+
+            <label style={{background:"#7c3aed", color:"white", borderRadius:"8px", padding:"10px 20px", cursor:"pointer", fontSize:"13px"}}>
+              {excelUploading ? 'در حال ثبت...' : 'ورود محصولات جدید (Excel)'}
+              <input 
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleExcelImport}
+                disabled={excelUploading}
+                style={{display:"none"}}
+              />
             </label>
           </div>
 
