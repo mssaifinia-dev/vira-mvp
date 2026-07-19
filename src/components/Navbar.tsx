@@ -70,11 +70,13 @@ export default function Navbar() {
     fontSize: "14px",
     padding: "8px 16px",
     borderRadius: "8px",
-    background: "#1e40af",
-    border: "1px solid rgba(255,255,255,0.3)",
+    background: "rgba(255,255,255,0.14)",
+    backdropFilter: "blur(6px)",
+    WebkitBackdropFilter: "blur(6px)",
+    border: "1px solid rgba(255,255,255,0.35)",
     whiteSpace: "nowrap" as const,
     display: "inline-block",
-    fontWeight: "normal" as const,
+    fontWeight: "600" as const,
   };
 
   return (
@@ -98,15 +100,27 @@ export default function Navbar() {
               </div>
             ) : null}
           </div>
-<div style={{display: "flex", flexDirection: "column", alignItems: "center", gap: "4px"}}>
-            <Image
-              src="/icons/navbar-logo.png"
-              alt="ویرا"
-              width={56}
-              height={35}
-              style={{objectFit: "contain"}}
-              priority
-            />
+
+          <div style={{display: "flex", flexDirection: "column", alignItems: "center", gap: "4px"}}>
+            <div style={{
+              width: "56px",
+              height: "56px",
+              borderRadius: "50%",
+              background: "rgba(229, 231, 235, 0.9)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}>
+              <Image
+                src="/icons/navbar-logo.png"
+                alt="ویرا"
+                width={40}
+                height={40}
+                style={{objectFit: "contain"}}
+                priority
+              />
+            </div>
             <Link href="/about" style={{
               color: "rgba(255,255,255,0.85)",
               fontSize: "12px",
@@ -119,7 +133,7 @@ export default function Navbar() {
               درباره ما
             </Link>
           </div>
-       
+
         </div>
 
                   <div style={{display: "flex", justifyContent: "flex-end", gap: "10px", flexWrap: "wrap", alignItems: "center"}}>
