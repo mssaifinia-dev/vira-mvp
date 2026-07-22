@@ -1,0 +1,5 @@
+[33m0428252[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m add PWA support: manifest, icons, service worker
+[33m3ef7c5b[m update project status documentation
+[33m6c06b12[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m luxury homepage redesign: hero background image, stats, testimonials, why-vira section, trust badges, glassmorphism navbar
+[33md2ba964[m improve inventory management: direct xlsx upload for both price/stock updates and new products
+[33md2cb623[m add real AI chatbot with Groq, fix categories click, expand academy management

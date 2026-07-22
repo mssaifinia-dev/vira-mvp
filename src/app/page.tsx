@@ -223,7 +223,7 @@ export default async function Home() {
             <img
               src="/icons/navbar-logo.png"
               alt="ویرا"
-              style={{width:"150px", height:"150px", objectFit:"contain"}}
+              style={{width:"350px", height:"350px", objectFit:"contain"}}
             />
 
           </div>
