@@ -2,7 +2,7 @@
   "name": "ویرا - تامین ارتباط",
   "short_name": "ویرا",
   "description": "اپلیکیشن تکنسین‌ها و نصاب‌های ویرا",
-  "start_url": "/technician",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
