@@ -86,6 +86,11 @@ export default function InvoicePage() {
   async function handleSubmit() {
     setSubmitting(true);
     setError('');
+const { data: service } = await supabase
+  .from('service_requests')
+  .select('customer_id, phone')
+  .eq('id', id)
+  .single();
 
     if (!laborCost) {
       setError('error');
@@ -130,6 +135,47 @@ export default function InvoicePage() {
       .from('service_requests')
       .update({ status: 'completed', completed_at: new Date().toISOString() })
       .eq('id', id);
+// بروزرسانی بایگانی مشتریان
+if (service) {
+
+  const { data: customer } = await supabase
+    .from('customer_archive')
+    .select('*')
+    .eq('user_id', service.customer_id)
+    .maybeSingle();
+
+  if (customer) {
+
+    await supabase
+      .from('customer_archive')
+      .update({
+        total_orders: (customer.total_orders || 0) + 1,
+        total_spent: Number(customer.total_spent || 0) + total,
+        last_order_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', service.customer_id);
+
+  } else {
+
+    await supabase
+      .from('customer_archive')
+      .insert({
+        user_id: service.customer_id,
+        phone: service.phone,
+        full_name: '',
+        city: '',
+        total_orders: 1,
+        total_spent: total,
+        last_order_at: new Date().toISOString(),
+        source: 'service',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+
+  }
+}
+
 
     setDone(true);
     setSubmitting(false);
@@ -166,7 +212,7 @@ export default function InvoicePage() {
                   {strings.invoice_company}
                 </p>
               </div>
-              <img src="/vira-logo.png" alt="vira" style={{height:"60px", objectFit:"contain"}} />
+              <img src="/icons/navbar-logo.png" alt="vira" style={{height:"60px", objectFit:"contain"}} />
             </div>
 
             <div style={{background:"#f9fafb", borderRadius:"10px", padding:"16px"}}>

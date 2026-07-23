@@ -140,7 +140,9 @@ export default function Navbar() {
 
           <Link href="/marketplace" style={tabStyle}>فروشگاه</Link>
           <Link href="/cart" style={tabStyle}>سبد خرید</Link>
-          <Link href="/technician" style={tabStyle}>درخواست تکنسین</Link>
+          {!isTechnician ? (
+            <Link href="/technician" style={tabStyle}>درخواست تکنسین</Link>
+          ) : null}
           <Link href="/support" style={tabStyle}>پشتیبانی</Link>
 
           {user ? (
