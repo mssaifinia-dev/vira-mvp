@@ -10,6 +10,9 @@ export async function POST(req: NextRequest) {
     }
 
     const apiKey = process.env.GROQ_API_KEY;
+    console.log('API KEY EXISTS:', !!apiKey);
+    console.log('API KEY PREFIX:', apiKey?.substring(0, 8));
+   
     if (!apiKey) {
       return NextResponse.json({ error: 'سرویس هوش مصنوعی تنظیم نشده' }, { status: 500 });
     }
