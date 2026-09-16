@@ -1,6 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
+// مدل‌های Groq به ترتیب اولویت — هر دو Production (نه preview) تا با تغییرات آینده‌ی Groq گیر نکنیم
+// لیست به‌روز مدل‌های فعال همیشه اینجاست: https://console.groq.com/docs/models
+const GROQ_MODELS = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'];
+
+const REQUEST_TIMEOUT_MS = 15000; // بعد از ۱۵ ثانیه درخواست رو قطع کن، کاربر منتظر نمونه
+
+async function callGroq(apiKey: string, model: string, systemPrompt: string, message: string) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message },
+        ],
+        temperature: 0.3,
+        max_tokens: 500,
+      }),
+      signal: controller.signal,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      // خطای دقیق Groq رو برمی‌گردونیم تا بالادست تصمیم بگیره retry کنه یا نه
+      const err = new Error(data?.error?.message || `Groq HTTP ${response.status}`);
+      (err as any).status = response.status;
+      (err as any).code = data?.error?.code;
+      throw err;
+    }
+
+    return data.choices?.[0]?.message?.content as string | undefined;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { message, userType } = await req.json();
@@ -10,19 +55,25 @@ export async function POST(req: NextRequest) {
     }
 
     const apiKey = process.env.GROQ_API_KEY;
-    console.log('API KEY EXISTS:', !!apiKey);
-    console.log('API KEY PREFIX:', apiKey?.substring(0, 8));
-   
+
     if (!apiKey) {
+      console.error('Vira AI: GROQ_API_KEY تنظیم نشده');
       return NextResponse.json({ error: 'سرویس هوش مصنوعی تنظیم نشده' }, { status: 500 });
     }
 
-    // بار گذاری سوالات متداول از دیتابیس برای context
-    const faqsRes = await supabaseAdmin.from('vira_faqs').select('question, answer').limit(30);
-    const faqs = faqsRes.data || [];
-    const faqContext = faqs.length > 0
-      ? '\n\nسوالات متداول ثبت‌شده در سیستم:\n' + faqs.map(f => `س: ${f.question}\nج: ${f.answer}`).join('\n\n')
-      : '';
+    // بار گذاری سوالات متداول از دیتابیس برای context — اگر دیتابیس هم مشکل داشت، چت نباید کلاً بخوابه
+    let faqContext = '';
+    try {
+      const faqsRes = await supabaseAdmin.from('vira_faqs').select('question, answer').limit(30);
+      const faqs = faqsRes.data || [];
+      faqContext =
+        faqs.length > 0
+          ? '\n\nسوالات متداول ثبت‌شده در سیستم:\n' +
+            faqs.map((f) => `س: ${f.question}\nج: ${f.answer}`).join('\n\n')
+          : '';
+    } catch (dbErr) {
+      console.error('Vira AI: خطا در بارگذاری FAQ از Supabase، بدون context ادامه می‌دهیم', dbErr);
+    }
 
     const systemPrompt = `تو "ویرا هوشمند" هستی، دستیار هوش مصنوعی شرکت تامین ارتباط ویرا در ایران.
 
@@ -46,37 +97,41 @@ export async function POST(req: NextRequest) {
 
 ${faqContext}`;
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message },
-        ],
-        temperature: 0.3,
-        max_tokens: 500,
-      }),
-    });
+    let aiMessage: string | undefined;
+    let lastError: any = null;
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('Groq API Error:', data);
-      return NextResponse.json({ error: 'خطا در دریافت پاسخ از هوش مصنوعی' }, { status: 500 });
+    // به ترتیب مدل‌ها امتحان می‌کنیم؛ اگر یکی 404 (مدل حذف‌شده) یا 5xx یا rate-limit داد، میریم سراغ بعدی
+    for (const model of GROQ_MODELS) {
+      try {
+        aiMessage = await callGroq(apiKey, model, systemPrompt, message);
+        if (aiMessage) {
+          if (model !== GROQ_MODELS[0]) {
+            console.warn(`Vira AI: مدل اصلی جواب نداد، با fallback (${model}) پاسخ داده شد`);
+          }
+          break;
+        }
+      } catch (err: any) {
+        lastError = err;
+        console.error(`Vira AI: خطا با مدل ${model} →`, err?.status, err?.code, err?.message);
+        // اگر خطا401 (کلید نامعتبر) بود، امتحان مدل بعدی هم فایده‌ای نداره
+        if (err?.status === 401) break;
+        continue;
+      }
     }
 
-    let aiMessage = data.choices?.[0]?.message?.content || 'متاسفانه نتوانستم پاسخ مناسبی پیدا کنم.';
+    if (!aiMessage) {
+      // همه‌ی مدل‌ها فیل شدن — حداقل یه جواب مفید به کاربر بدیم، نه فقط پیام خطای خشک
+      console.error('Vira AI: تمام مدل‌ها فیل شدند. آخرین خطا:', lastError?.message);
+      return NextResponse.json({
+        reply:
+          'در حال حاضر امکان پاسخ‌گویی هوشمند وجود ندارد. می‌توانید سوال خود را در بخش «تماس با پشتیبانی» مطرح کنید یا کمی بعد دوباره امتحان کنید.',
+      });
+    }
 
     // فیلتر کاراکترهای خارجی (چینی، ژاپنی، کره‌ای، هندی و ...) که گاهی مدل اشتباهی تولید می‌کند
     aiMessage = aiMessage.replace(/[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af\u0900-\u097f]/g, '');
 
-    return NextResponse.json({ reply: aiMessage });
-
+    return NextResponse.json({ reply: aiMessage || 'متاسفانه نتوانستم پاسخ مناسبی پیدا کنم.' });
   } catch (err: any) {
     console.error('Vira AI Error:', err);
     return NextResponse.json({ error: 'خطا در پردازش درخواست' }, { status: 500 });
