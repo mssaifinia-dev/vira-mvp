@@ -429,18 +429,29 @@ export default async function Home() {
                 </div>
               </div>
 
-              {/* اینماد - جای خالی */}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: '20px',
-                background: '#f9fafb', border: '3px solid #4b5563', borderRadius: '18px',
-                padding: '32px 48px'
-              }}>
-                <span style={{ fontSize: '64px' }}>🛡️</span>
+              {/* اینماد */}
+              <a
+                referrerPolicy="origin"
+                target="_blank"
+                href="https://trustseal.enamad.ir/?id=7789772&Code=4uPFXMVWCtVYLXdaEWMhkBYh5ruKyRbM"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '20px',
+                  background: '#f9fafb', border: '3px solid #4b5563', borderRadius: '18px',
+                  padding: '32px 48px'
+                }}
+              >
+                <img
+                  referrerPolicy="origin"
+                  src="https://trustseal.enamad.ir/logo.aspx?id=7789772&Code=4uPFXMVWCtVYLXdaEWMhkBYh5ruKyRbM"
+                  alt="نماد اعتماد الکترونیکی"
+                  style={{ width: '64px', height: '64px', objectFit: 'contain', cursor: 'pointer' }}
+                />
                 <div style={{ textAlign: 'right' }}>
                   <p style={{ fontSize: '26px', fontWeight: 'bold', color: '#1f2937' }}>نماد اعتماد الکترونیکی</p>
-                  <p style={{ fontSize: '16px', color: '#6b7280' }}>به‌زودی</p>
+                  <p style={{ fontSize: '16px', color: '#6b7280' }}>تایید شده توسط اینماد</p>
                 </div>
-              </div>
+              </a>
 
             </div>
           </div>
