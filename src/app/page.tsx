@@ -431,21 +431,19 @@ export default async function Home() {
 
               {/* اینماد */}
               <a
-                referrerPolicy="origin"
                 target="_blank"
                 href="https://trustseal.enamad.ir/?id=7789772&Code=4uPFXMVWCtVYLXdaEWMhkBYh5ruKyRbM"
                 rel="noopener noreferrer"
                 style={{
                   display: 'flex', alignItems: 'center', gap: '20px',
                   background: '#f9fafb', border: '3px solid #4b5563', borderRadius: '18px',
-                  padding: '32px 48px'
+                  padding: '24px 48px'
                 }}
               >
                 <img
-                  referrerPolicy="origin"
-                  src="https://trustseal.enamad.ir/logo.aspx?id=7789772&Code=4uPFXMVWCtVYLXdaEWMhkBYh5ruKyRbM"
+                  src="/icons/enamad-logo.png"
                   alt="نماد اعتماد الکترونیکی"
-                  style={{ width: '64px', height: '64px', objectFit: 'contain', cursor: 'pointer' }}
+                  style={{ width: '90px', height: 'auto', objectFit: 'contain', cursor: 'pointer' }}
                 />
                 <div style={{ textAlign: 'right' }}>
                   <p style={{ fontSize: '26px', fontWeight: 'bold', color: '#1f2937' }}>نماد اعتماد الکترونیکی</p>
