@@ -15,6 +15,12 @@ type Product = {
   image: string | null;
   stock: number;
   created_at: string;
+  seller_id: string | null;
+};
+
+type SellerInfo = {
+  id: string;
+  shop_name: string;
 };
 
 const categoryLabels: Record<string, string> = {
@@ -37,6 +43,7 @@ function getDiscountPercent(product: Product): number {
 
 export default function Marketplace() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [sellersMap, setSellersMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [addedId, setAddedId] = useState<string | null>(null);
   const [cartCount, setCartCount] = useState(0);
@@ -57,9 +64,26 @@ export default function Marketplace() {
       setProducts(data || []);
       setLoading(false);
     }
+
+    async function fetchSellers() {
+      const { data } = await supabase.from('sellers').select('id, shop_name');
+      const map: Record<string, string> = {};
+      for (const s of (data as SellerInfo[]) || []) {
+        map[s.id] = s.shop_name;
+      }
+      setSellersMap(map);
+    }
+
     fetchProducts();
+    fetchSellers();
     fetchCartCount();
   }, []);
+
+  function getSellerLabel(product: Product): string {
+    if (!product.seller_id) return 'فروشنده رسمی ویرا';
+    const shopName = sellersMap[product.seller_id];
+    return shopName ? 'فروش توسط ' + shopName : 'فروشنده همکار ویرا';
+  }
 
   async function fetchCartCount() {
     const userRes = await supabase.auth.getUser();
@@ -305,6 +329,19 @@ export default function Marketplace() {
                     className="w-full h-40 object-cover rounded-lg mb-4"
                   />
                 )}
+
+                <span style={{
+                  display: "inline-block",
+                  fontSize: "11px",
+                  fontWeight: "bold",
+                  padding: "3px 10px",
+                  borderRadius: "6px",
+                  marginBottom: "8px",
+                  background: product.seller_id ? "#f0fdf4" : "#eff6ff",
+                  color: product.seller_id ? "#15803d" : "#1e3a8a",
+                }}>
+                  {product.seller_id ? "🏪" : "✅"} {getSellerLabel(product)}
+                </span>
 
                 <h2 className="text-xl font-bold text-blue-900">{product.name}</h2>
                 <p className="text-gray-600 mt-2 text-sm">{product.description}</p>
