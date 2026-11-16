@@ -53,8 +53,13 @@ export default function TrackRequest() {
     setRequest(data);
 
     if (data && data.technician_id) {
-      const res2 = await supabase.from('technicians').select('full_name, phone, photo_url').eq('id', data.technician_id).single();
-      setTechnician(res2.data);
+      const info = await supabase.rpc('request_technician_info', { p_request: id });
+      if (!info.error) {
+        setTechnician(info.data && info.data.length > 0 ? info.data[0] : null);
+      } else {
+        const res2 = await supabase.from('technicians').select('full_name, phone, photo_url').eq('id', data.technician_id).single();
+        setTechnician(res2.data);
+      }
     }
 
     if (data && data.status === 'completed') {
@@ -83,6 +88,7 @@ export default function TrackRequest() {
 
   const statusLabels: Record<string, string> = {
     pending: strings.status_pending,
+    assigned: 'ارجاع‌شده',
     accepted: strings.status_accepted,
     in_progress: strings.status_in_progress,
     completed: strings.status_completed,

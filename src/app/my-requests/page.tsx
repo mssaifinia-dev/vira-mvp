@@ -30,6 +30,7 @@ const orderStatusMap: Record<string, string> = {
 
 const serviceStatusMap: Record<string, string> = {
   pending: strings.status_pending,
+  assigned: 'ارجاع‌شده',
   accepted: strings.status_accepted,
   in_progress: strings.status_in_progress,
   completed: strings.status_completed,

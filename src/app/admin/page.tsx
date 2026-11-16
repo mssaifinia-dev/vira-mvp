@@ -18,6 +18,8 @@ const statusMap: Record<string, string> = {
   delivered: strings.status_delivered,
   cancelled: strings.status_cancelled,
   accepted: strings.status_accepted,
+  assigned: 'ارجاع‌شده',
+  in_progress: strings.status_in_progress,
   completed: strings.status_completed,
 };
 
@@ -51,6 +53,7 @@ const managementLinks = [
   { href: '/admin/about', icon: 'ℹ️', title: 'درباره ما', color: '#0891b2' },
   { href: '/admin/manage-academy', icon: '📚', title: 'آکادمی ویرا', color: '#0d9488' },
   { href: '/admin/manage-ai', icon: '🤖', title: 'Vira AI', color: '#4f46e5' },
+  { href: '/admin/manage-services', icon: '🛠️', title: 'خدمات و مراکز مخابراتی', color: '#0f766e' },
 ];
 
 export default function AdminPanel() {

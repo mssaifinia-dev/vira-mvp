@@ -2,6 +2,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import FadeInSection from "@/components/FadeInSection";
 import FloatingContactButton from "@/components/FloatingContactButton";
+import { resolveLink } from "@/lib/url";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -20,9 +21,15 @@ type Advertisement = {
 };
 
 function renderAd(ad: Advertisement) {
+  // لینک خارجی (http/https یا دامنه) بدون تغییر و در تب جدید؛ فقط مسیرهای داخلی به دامنه‌ی ویرا وابسته‌اند
+  const link = resolveLink(ad.link_url);
+  const Wrapper: any = link.valid ? "a" : "div";
+  const linkProps: any = link.valid
+    ? { href: link.href, ...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {}) }
+    : {};
   return (
-    <a
-      href={ad.link_url || "#"}
+    <Wrapper
+      {...linkProps}
       style={{
         display: "block",
         background: "white",
@@ -53,7 +60,7 @@ function renderAd(ad: Advertisement) {
           {ad.title}
         </div>
       )}
-    </a>
+    </Wrapper>
   );
 }
 

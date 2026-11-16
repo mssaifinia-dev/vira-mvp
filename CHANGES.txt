@@ -1,0 +1,43 @@
+Vira update — services v2 + academy v2 + سه اصلاح جدید (محدوده چندگانه تکنسین، پخش ویدئو، لینک تبلیغات)
+=========================================================================================================
+فایل‌ها را روی ریشه‌ی پروژه (کنار package.json) کپی کنید؛ مسیرها همان مسیرهای src/... هستند.
+این زیپ جایگزین زیپ‌های قبلی است و همه‌ی فایل‌ها را دارد.
+
+ترتیب SQL: 0006 ← 0007 ← 0008 ← 0009 (و در صورت نیاز security_fix_admins_OPTIONAL).
+فایل‌های *_rollback.sql را فقط در صورت نیاز و به‌ترتیب معکوس (0009 ← 0008 ← 0007 ← 0006) اجرا کنید.
+
+--- اصلاح‌های جدید این نسخه ---
+[۱] محدوده/خدمات چندگانه‌ی تکنسین
+    src/components/admin/TechnicianScopesManager.tsx   (جدید) انتخاب چند مرکز، چند خیابان و چند خدمت (چندانتخابی)
+    src/app/admin/manage-services/page.tsx             تب «محدوده و خدمات تکنسین‌ها» از مدیر جدید استفاده می‌کند
+    SQL: 0009_technician_multi_scope.sql               جدول‌های technician_areas و technician_services + انتقال داده + قاعده‌ی تطبیق
+[۲] پخش ویدئو (یوتیوب / آپارات / Vimeo / Embed / فایل مستقیم)
+    src/lib/media.ts            (جایگزین) تشخیص نوع لینک و ساخت آدرس پخش
+    src/lib/url.ts              (جدید) پاک‌سازی و اعتبارسنجی آدرس‌ها
+    src/components/academy/VideoPlayer.tsx   (جدید) پخش‌کننده با پیام خطای قابل‌فهم
+    src/app/academy/video/[id]/page.tsx      از پخش‌کننده‌ی جدید استفاده می‌کند
+    src/components/admin/CrudManager.tsx     امکان اعتبارسنجی هنگام ذخیره (beforeSave)
+    src/app/admin/manage-academy/page.tsx    لینک ویدئو هنگام ذخیره تمیز و بررسی می‌شود
+[۳] لینک تبلیغات
+    src/app/page.tsx                         نمایش تبلیغات: لینک خارجی بدون تغییر + تب جدید + noopener noreferrer
+    src/app/admin/advertisements/page.tsx    اعتبارسنجی و تمیزکردن لینک هنگام ثبت + پیش‌نمایش لینک نهایی
+    src/lib/url.ts                           (مشترک با بالا)
+
+--- فایل‌های نسخه‌های قبلی (بدون تغییر نسبت به تحویل قبلی، مگر مواردی که بالا ذکر شد) ---
+  src/app/technician/page.tsx, src/app/academy/page.tsx, src/app/admin/page.tsx, src/components/Navbar.tsx,
+  src/app/technician/dashboard/page.tsx, src/app/technician/track/[id]/page.tsx, src/app/my-requests/page.tsx,
+  src/app/admin/finance/page.tsx, src/app/center/page.tsx, src/app/academy/category|course|article/...,
+  src/components/RequestForm.tsx, RequestDetails.tsx, academy/AcademyCards.tsx, src/lib/serviceCatalog.ts
+
+--- بانک مراکز مخابراتی استان تهران (نسخه‌ی جدید) ---
+SQL (به ترتیب، بعد از 0009): 0010_telecom_centers_directory.sql  ←  0011_telecom_centers_seed.sql
+بعد از npm: در پوشه‌ی پروژه یک‌بار اجرا کنید:  npm install read-excel-file@5   (برای ورود گروهی از Excel)
+    src/lib/fa.ts                                   (جدید) نرمال‌سازی فارسی + جست‌وجوی مراکز (نام، خیابان، محله، شهر، آدرس)
+    src/lib/csv.ts                                  (جدید) خواندن/نوشتن CSV
+    src/lib/centersImport.ts                        (جدید) ورود گروهی: تشخیص ستون‌ها، جدید/به‌روزرسانی/تکراری/نامعتبر
+    src/components/CenterPicker.tsx                 (جدید) انتخاب مرکز با جست‌وجو؛ نام و آدرس هم‌زمان
+    src/components/admin/TelecomCentersManager.tsx  (جدید) «مدیریت مراکز مخابراتی»
+    src/components/RequestForm.tsx                  (جایگزین) فقط بخش انتخاب مرکز عوض شده
+    src/app/admin/manage-services/page.tsx          (جایگزین) تب مراکز → مدیریت جدید
+    src/components/admin/CrudManager.tsx, TechnicianScopesManager.tsx, src/lib/serviceCatalog.ts, src/components/RequestDetails.tsx
+                                                    (جایگزین) مراکز حذف‌شده در فهرست‌های ادمین نمی‌آیند؛ آدرس مرکز روی درخواست‌ها دیده می‌شود

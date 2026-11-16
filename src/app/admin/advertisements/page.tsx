@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { resolveLink, linkForStorage } from '@/lib/url';
 
 type Alignment = 'right' | 'left' | 'center' | 'full';
 
@@ -104,6 +105,13 @@ export default function AdminAdvertisementsPage() {
 
     }
 
+    if(linkUrl.trim() && !resolveLink(linkUrl).valid){
+
+      setMessage('لینک مقصد معتبر نیست. آدرس کامل با https:// یا مسیر داخلی سایت (مثل /marketplace) وارد کنید.');
+      return;
+
+    }
+
 
     setUploading(true);
     setMessage('');
@@ -158,7 +166,7 @@ export default function AdminAdvertisementsPage() {
 
         title,
         image_url:imageUrl,
-        link_url:linkUrl,
+        link_url:linkForStorage(linkUrl),
         position,
         active:true,
         sort_order: ads.length,
@@ -389,6 +397,15 @@ export default function AdminAdvertisementsPage() {
             onChange={e=>setLinkUrl(e.target.value)}
             style={inputStyle}
           />
+
+          {linkUrl.trim() ? (() => {
+            const l = resolveLink(linkUrl);
+            return (
+              <p style={{fontSize:"12px", marginTop:"-8px", marginBottom:"12px", color: l.valid ? "#16a34a" : "#dc2626"}}>
+                {l.valid ? (l.external ? "لینک خارجی (تب جدید): " : "لینک داخلی سایت: ") + l.href : "لینک معتبر نیست"}
+              </p>
+            );
+          })() : null}
 
 
 

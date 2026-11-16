@@ -9,6 +9,7 @@ export default function Navbar() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSeller, setIsSeller] = useState(false);
   const [isTechnician, setIsTechnician] = useState(false);
+  const [isSupervisor, setIsSupervisor] = useState(false);
 
   useEffect(() => {
     checkUser();
@@ -41,6 +42,13 @@ export default function Navbar() {
       .eq('user_id', currentUser.id)
       .maybeSingle();
     if (techRes.data) setIsTechnician(true);
+
+    const supRes = await supabase
+      .from('center_supervisors')
+      .select('id')
+      .eq('user_id', currentUser.id)
+      .limit(1);
+    if (supRes.data && supRes.data.length > 0) setIsSupervisor(true);
   }
 
   async function handleLogout() {
@@ -166,6 +174,10 @@ export default function Navbar() {
           ) : (
             <Link href="/technician/register" style={tabStyle}>ثبت‌نام تکنسین</Link>
           )}
+
+          {isSupervisor ? (
+            <Link href="/center" style={tabStyle}>پنل مرکز مخابراتی</Link>
+          ) : null}
 
           {isAdmin ? (
             <Link href="/admin" style={tabStyle}>پنل مدیریت</Link>

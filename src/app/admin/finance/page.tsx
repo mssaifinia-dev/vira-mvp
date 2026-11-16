@@ -51,7 +51,7 @@ export default function FinancePage() {
     const commissionRevenue = commissionRes.data?.reduce((sum, o) => sum + (o.commission_amount || 0), 0) || 0;
 
     const invoicesRes = await supabase
-      .from('technician_invoices')
+      .from('invoices')
       .select('total_amount');
     const technicianRevenue = invoicesRes.data?.reduce((sum, i) => sum + (i.total_amount || 0), 0) || 0;
 

@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { sendSms } from '@/lib/sms';
+import { loadCatalogMaps, type CatalogMaps } from '@/lib/serviceCatalog';
+import RequestDetails from '@/components/RequestDetails';
 
 type Technician = {
   id: string;
@@ -20,6 +22,14 @@ type ServiceRequest = {
   eta_minutes: number | null;
   created_at: string;
   customer_id: string;
+  category_id?: string | null;
+  fault_type_id?: string | null;
+  center_id?: string | null;
+  street_id?: string | null;
+  street_text?: string | null;
+  details?: Record<string, any> | null;
+  priority?: string | null;
+  customer_name?: string | null;
 };
 
 const issueLabels: Record<string, string> = {
@@ -32,6 +42,7 @@ const issueLabels: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
   pending: 'در انتظار',
+  assigned: 'ارجاع‌شده',
   accepted: 'پذیرفته‌شده',
   in_progress: 'در حال انجام',
   completed: 'انجام‌شده',
@@ -47,6 +58,7 @@ export default function TechnicianDashboard() {
   const [etaInput, setEtaInput] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<'new' | 'active' | 'history'>('active');
   const [totalEarned, setTotalEarned] = useState(0);
+  const [maps, setMaps] = useState<CatalogMaps | null>(null);
 
   useEffect(() => {
     init();
@@ -71,6 +83,7 @@ export default function TechnicianDashboard() {
     }
 
     setTechnician(techRes.data);
+    loadCatalogMaps().then(setMaps);
     await fetchRequests(techRes.data.id);
     await fetchEarnings(techRes.data.id);
     setLoading(false);
@@ -81,11 +94,11 @@ export default function TechnicianDashboard() {
     if (!id) return;
 
     const invoicesRes = await supabase
-      .from('technician_invoices')
-      .select('total_amount')
+      .from('invoices')
+      .select('technician_payout')
       .eq('technician_id', id);
 
-    const sum = (invoicesRes.data || []).reduce((s, i) => s + (i.total_amount || 0), 0);
+    const sum = (invoicesRes.data || []).reduce((s: number, i: any) => s + (i.technician_payout || 0), 0);
     setTotalEarned(sum);
   }
 
@@ -103,7 +116,7 @@ export default function TechnicianDashboard() {
       .from('service_requests')
       .select('*')
       .eq('technician_id', id)
-      .in('status', ['accepted', 'in_progress'])
+      .in('status', ['assigned', 'accepted', 'in_progress'])
       .order('created_at', { ascending: false });
 
     const historyRes = await supabase
@@ -278,10 +291,28 @@ export default function TechnicianDashboard() {
               <div key={r.id} style={{background:"#eff6ff", border:"1px solid #bfdbfe", borderRadius:"12px", padding:"16px", marginBottom:"12px"}}>
                 <p style={{fontWeight:"bold"}}>{issueLabels[r.issue_type] || r.issue_type}</p>
                 <p style={{fontSize:"14px", color:"#6b7280", marginTop:"4px"}}>{r.description}</p>
+                <RequestDetails r={r} maps={maps} />
                 <p style={{fontSize:"14px", color:"#6b7280", marginTop:"4px"}}>📍 {r.address}</p>
                 <p style={{fontSize:"14px", color:"#6b7280", marginTop:"4px"}}>📞 {r.phone}</p>
 
                 <div style={{marginTop:"12px"}}>
+                  {r.status === 'assigned' && (
+                    <div style={{display:"flex", gap:"8px", alignItems:"center"}}>
+                      <input
+                        type="number"
+                        placeholder="زمان رسیدن (دقیقه)"
+                        value={etaInput[r.id] || ''}
+                        onChange={(e) => setEtaInput({ ...etaInput, [r.id]: e.target.value })}
+                        style={{flex:1, border:"1px solid #d1d5db", borderRadius:"8px", padding:"8px", fontSize:"13px"}}
+                      />
+                      <button
+                        onClick={() => acceptRequest(r.id)}
+                        style={{background:"#1e3a8a", color:"white", padding:"8px 20px", borderRadius:"8px", border:"none", cursor:"pointer", fontSize:"14px", fontWeight:"bold"}}
+                      >
+                        قبول کار
+                      </button>
+                    </div>
+                  )}
                   {r.status === 'accepted' && (
                     <button
                       onClick={() => startWork(r.id)}
@@ -315,6 +346,7 @@ export default function TechnicianDashboard() {
               <div key={r.id} style={{background:"white", borderRadius:"12px", padding:"16px", marginBottom:"12px", boxShadow:"0 1px 3px rgba(0,0,0,0.1)"}}>
                 <p style={{fontWeight:"bold"}}>{issueLabels[r.issue_type] || r.issue_type}</p>
                 <p style={{fontSize:"14px", color:"#6b7280", marginTop:"4px"}}>{r.description}</p>
+                <RequestDetails r={r} maps={maps} />
                 <p style={{fontSize:"14px", color:"#6b7280", marginTop:"4px"}}>📍 {r.address}</p>
 
                 <div style={{display:"flex", gap:"8px", marginTop:"12px", alignItems:"center"}}>
@@ -350,6 +382,7 @@ export default function TechnicianDashboard() {
                   <div>
                     <p style={{fontWeight:"bold"}}>{issueLabels[r.issue_type] || r.issue_type}</p>
                     <p style={{fontSize:"13px", color:"#6b7280", marginTop:"4px"}}>{r.description}</p>
+                    <RequestDetails r={r} maps={maps} />
                     <p style={{fontSize:"13px", color:"#6b7280", marginTop:"4px"}}>📍 {r.address}</p>
                     <p style={{fontSize:"12px", color:"#9ca3af", marginTop:"6px"}}>{formatDate(r.created_at)}</p>
                   </div>
