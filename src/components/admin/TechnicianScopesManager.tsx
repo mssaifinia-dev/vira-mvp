@@ -53,7 +53,7 @@ export default function TechnicianScopesManager() {
   useEffect(() => {
     (async () => {
       const [t, c, ce, st] = await Promise.all([
-        supabase.from('technicians').select('id, full_name, phone, city').eq('is_approved', true).order('full_name'),
+        supabase.from('technicians').select('id, full_name, phone, city').eq('is_approved', true).is('deleted_at', null).order('full_name'),
         supabase.from('service_categories').select('id, name, is_active').order('sort_order'),
         supabase.from('telecom_centers').select('id, name, is_active').is('deleted_at', null).order('name'),
         supabase.from('center_streets').select('id, center_id, name, is_active').order('name'),

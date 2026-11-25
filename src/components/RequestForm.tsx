@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import CenterPicker from '@/components/CenterPicker';
 import type { CenterRow } from '@/lib/fa';
+import { normalizeDigits, validateFtth, type FtthRule } from '@/lib/ftth';
 
 const LEGACY_TYPES = [
   { value: 'ftth', label: 'قطعی اینترنت / فیبر نوری' },
@@ -56,6 +57,8 @@ export default function RequestForm({ mode, allowedCenterIds = null, onCreated }
   const [phone, setPhone] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [urgent, setUrgent] = useState(false);
+  const [ftthNumber, setFtthNumber] = useState('');
+  const [ftthRules, setFtthRules] = useState<FtthRule[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -104,6 +107,11 @@ export default function RequestForm({ mode, allowedCenterIds = null, onCreated }
       .then((res) => setStreets(res.data || []));
   }, [centerId]);
 
+  useEffect(() => {
+    // قواعد شماره‌ی FTTH هر شهر (اگر جدول هنوز ساخته نشده باشد، فهرست خالی می‌ماند)
+    supabase.from('ftth_city_rules').select('*').eq('is_active', true).then((res) => setFtthRules((res.data as FtthRule[]) || []));
+  }, []);
+
   function handlePhone(val: string) {
     setPhone(val.replace(/[^0-9]/g, '').substring(0, 11));
   }
@@ -120,6 +128,7 @@ export default function RequestForm({ mode, allowedCenterIds = null, onCreated }
     setCustomerName('');
     setDetails({});
     setUrgent(false);
+    setFtthNumber('');
   }
 
   async function handleSubmit() {
@@ -142,6 +151,10 @@ export default function RequestForm({ mode, allowedCenterIds = null, onCreated }
       if (mode === 'support' && !centerId) return setError('مرکز را انتخاب کنید');
       for (const f of fields) {
         if (f.is_required && !String(details[f.key] || '').trim()) return setError('«' + f.label + '» الزامی است');
+      }
+      if (category?.requires_ftth_number) {
+        const ftthErr = validateFtth(ftthNumber, ftthRules);
+        if (ftthErr) return setError(ftthErr);
       }
       if (faults.length > 0 && !faultId && !description.trim()) {
         return setError('نوع خرابی را انتخاب کنید یا توضیح بنویسید');
@@ -179,6 +192,7 @@ export default function RequestForm({ mode, allowedCenterIds = null, onCreated }
         street_id: streetId && streetId !== 'other' ? streetId : null,
         street_text: streetId === 'other' ? streetText.trim() || null : null,
         details,
+        ftth_number: category.requires_ftth_number ? normalizeDigits(ftthNumber) : null,
         customer_name: mode === 'support' ? customerName.trim() : null,
         priority: urgent ? 'urgent' : 'normal',
         source: mode,
@@ -255,6 +269,23 @@ export default function RequestForm({ mode, allowedCenterIds = null, onCreated }
                 ))}
               </select>
             </>
+          )}
+
+          {category.requires_ftth_number && (
+            <div>
+              <label>شماره مجازی FTTH *</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                dir="ltr"
+                autoComplete="off"
+                value={ftthNumber}
+                placeholder="02199162496"
+                onChange={(e) => setFtthNumber(normalizeDigits(e.target.value).replace(/[^0-9]/g, '').slice(0, 16))}
+                style={field}
+              />
+              <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>کد شهر به‌همراه ۸ رقم بعد از آن؛ مثلاً در تهران ۱۱ رقم و با صفر ابتدایی (02199162496).</p>
+            </div>
           )}
 
           {fields.map((f) => (

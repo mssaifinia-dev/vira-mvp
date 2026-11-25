@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { loadCatalogMaps, type CatalogMaps } from '@/lib/serviceCatalog';
 import RequestDetails from '@/components/RequestDetails';
 import RequestForm from '@/components/RequestForm';
+import DeleteRequestButton from '@/components/center/DeleteRequestButton';
 
 const OPEN = ['pending', 'assigned', 'accepted', 'in_progress'];
 
@@ -215,6 +216,12 @@ export default function CenterPanel() {
                   <button onClick={() => cancel(r)} style={{ background: 'white', color: '#dc2626', padding: '8px 14px', borderRadius: '8px', border: '1px solid #fecaca', cursor: 'pointer', fontSize: '13px' }}>
                     لغو درخواست
                   </button>
+                </div>
+              )}
+
+              {tab === 'closed' && (
+                <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                  <DeleteRequestButton requestId={r.id} requestNo={r.request_no} onDeleted={loadRequests} />
                 </div>
               )}
             </div>

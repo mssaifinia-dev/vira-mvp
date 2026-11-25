@@ -28,6 +28,7 @@ type Invoice = {
   payment_status: string;
   rating: number | null;
   feedback: string | null;
+  status?: string;
 };
 
 export default function TrackRequest() {
@@ -63,26 +64,56 @@ export default function TrackRequest() {
     }
 
     if (data && data.status === 'completed') {
-      const res3 = await supabase.from('invoices').select('id, total_amount, payment_status, rating, feedback').eq('request_id', id).maybeSingle();
+      const res3 = await supabase.from('invoices').select('id, total_amount, payment_status, rating, feedback, status').eq('request_id', id).maybeSingle();
       setInvoice(res3.data);
     }
 
     setLoading(false);
   }
 
+  async function handleApprove() {
+    if (!invoice) return;
+    setPaying(true);
+    const res = await supabase.rpc('customer_approve_invoice', { p_invoice: invoice.id });
+    setPaying(false);
+    if (res.error) { alert(res.error.message); return; }
+    fetchRequest();
+  }
+
+  async function handleOnlinePay() {
+    if (!invoice) return;
+    setPaying(true);
+    const sess = await supabase.auth.getSession();
+    try {
+      const res = await fetch('/api/payment/invoice/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (sess.data.session?.access_token || '') },
+        body: JSON.stringify({ invoiceId: invoice.id }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.url) { alert(json.error || 'اتصال به درگاه ناموفق بود'); setPaying(false); return; }
+      window.location.href = json.url;
+    } catch {
+      alert('ارتباط با درگاه برقرار نشد');
+      setPaying(false);
+    }
+  }
+
   async function handlePayment() {
     if (!invoice) return;
     setPaying(true);
-    await supabase.from('invoices').update({ payment_status: 'paid' }).eq('id', invoice.id);
+    const res = await supabase.rpc('customer_report_payment', { p_invoice: invoice.id });
     setPaying(false);
+    if (res.error) { alert(res.error.message); return; }
     fetchRequest();
   }
 
   async function handleSubmitReview() {
     if (!invoice || rating === 0) return;
     setSubmittingReview(true);
-    await supabase.from('invoices').update({ rating: rating, feedback: feedback }).eq('id', invoice.id);
+    const res = await supabase.rpc('customer_rate_invoice', { p_invoice: invoice.id, p_rating: rating, p_feedback: feedback });
     setSubmittingReview(false);
+    if (res.error) { alert(res.error.message); return; }
     fetchRequest();
   }
 
@@ -184,11 +215,27 @@ export default function TrackRequest() {
               {strings.invoice_details_btn}
             </button>
 
-            {isPaid ? (
+            {invoice && invoice.status === 'issued' && !isPaid ? (
+              <button
+                onClick={handleApprove}
+                disabled={paying}
+                style={{width:"100%", background:"#1e3a8a", color:"white", padding:"14px", borderRadius:"10px", border:"none", cursor:"pointer", fontWeight:"bold", fontSize:"16px", opacity: paying ? 0.6 : 1}}
+              >
+                {paying ? '...' : 'تأیید فاکتور'}
+              </button>
+            ) : isPaid ? (
               <div style={{background:"#d1fae5", color:"#065f46", padding:"12px", borderRadius:"10px", textAlign:"center", fontWeight:"bold"}}>
                 {strings.paid_label}
               </div>
             ) : (
+              <>
+              <button
+                onClick={handleOnlinePay}
+                disabled={paying}
+                style={{width:"100%", background:"#1e3a8a", color:"white", padding:"14px", borderRadius:"10px", border:"none", cursor:"pointer", fontWeight:"bold", fontSize:"16px", opacity: paying ? 0.6 : 1, marginBottom:"8px"}}
+              >
+                {paying ? '...' : 'پرداخت آنلاین (درگاه امن)'}
+              </button>
               <button
                 onClick={handlePayment}
                 disabled={paying}
@@ -196,6 +243,8 @@ export default function TrackRequest() {
               >
                 {paying ? '...' : strings.confirm_payment_btn}
               </button>
+              <p style={{fontSize:"12px", color:"#6b7280", marginTop:"8px", lineHeight:1.8}}>اگر پرداخت را به‌صورت نقدی انجام داده‌اید، دکمه‌ی دوم را بزنید؛ پرداخت پس از بررسی مدیر مالی تأیید می‌شود.</p>
+              </>
             )}
           </div>
         ) : null}

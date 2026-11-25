@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useEffect, useState } from 'react';
+import { categoryDepth, categoryLabel, chipSlugs, descendantSlugs, loadCategories, type Cat } from '@/lib/categories';
 import { supabase } from '@/lib/supabase';
 import { strings } from '@/lib/strings';
 
@@ -54,6 +55,7 @@ export default function Marketplace() {
   const [maxPrice, setMaxPrice] = useState('');
   const [onlyDiscounted, setOnlyDiscounted] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [catTree, setCatTree] = useState<Cat[]>([]);
 
   useEffect(() => {
     async function fetchProducts() {
@@ -66,7 +68,7 @@ export default function Marketplace() {
     }
 
     async function fetchSellers() {
-      const { data } = await supabase.from('sellers').select('id, shop_name');
+      const { data } = await supabase.from('seller_public').select('id, shop_name');
       const map: Record<string, string> = {};
       for (const s of (data as SellerInfo[]) || []) {
         map[s.id] = s.shop_name;
@@ -77,6 +79,7 @@ export default function Marketplace() {
     fetchProducts();
     fetchSellers();
     fetchCartCount();
+    loadCategories().then(setCatTree);
   }, []);
 
   function getSellerLabel(product: Product): string {
@@ -132,7 +135,10 @@ export default function Marketplace() {
   for (let i = 0; i < products.length; i++) {
     categorySet.add(products[i].category);
   }
-  const categories = Array.from(categorySet);
+  const presentSlugs = Array.from(categorySet);
+  // با درخت دسته‌بندی: دسته‌های اصلی + زیردسته‌های دسته‌ی انتخاب‌شده؛ بدون آن: فهرست قدیمی
+  const categories: string[] = catTree.length ? chipSlugs(catTree, presentSlugs, selectedCategories) : presentSlugs;
+  const expandedSelected: string[] = selectedCategories.flatMap((c) => descendantSlugs(catTree, c));
 
   function toggleCategory(cat: string) {
     if (selectedCategories.includes(cat)) {
@@ -154,7 +160,7 @@ export default function Marketplace() {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.description.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(p.category);
+    const matchesCategory = selectedCategories.length === 0 || expandedSelected.includes(p.category);
 
     const minOk = !minPrice || p.price >= Number(minPrice);
     const maxOk = !maxPrice || p.price <= Number(maxPrice);
@@ -254,7 +260,7 @@ export default function Marketplace() {
                         border:"none", borderRadius:"20px", padding:"6px 16px", cursor:"pointer", fontSize:"13px"
                       }}
                     >
-                      {getCategoryLabel(cat)}
+                      {'— '.repeat(categoryDepth(catTree, cat))}{categoryLabel(catTree, cat, getCategoryLabel(cat))}
                     </button>
                   );
                 })}
@@ -368,7 +374,7 @@ export default function Marketplace() {
                     {strings.stock}: {product.stock}
                   </span>
                   <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                    {getCategoryLabel(product.category)}
+                    {categoryLabel(catTree, product.category, getCategoryLabel(product.category))}
                   </span>
                 </div>
 

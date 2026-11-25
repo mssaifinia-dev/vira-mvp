@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { flattenTree, loadCategories } from '@/lib/categories';
 import { supabase } from '@/lib/supabase';
 import * as XLSX from 'xlsx';
 
@@ -44,7 +45,7 @@ const statusLabels: Record<string, string> = {
   cancelled: 'لغوشده',
 };
 
-const categories = [
+const fallbackCategories = [
   { value: 'ftth', label: 'تجهیزات FTTH' },
   { value: 'smart-home', label: 'خانه هوشمند' },
   { value: 'car-parts', label: 'قطعات خودرو' },
@@ -71,6 +72,12 @@ export default function SellerDashboard() {
   const [originalPrice, setOriginalPrice] = useState('');
   const [isSpecialOffer, setIsSpecialOffer] = useState(false);
   const [category, setCategory] = useState('ftth');
+  const [categories, setCategories] = useState(fallbackCategories);
+  useEffect(() => {
+    loadCategories().then((list) => {
+      if (list.length) setCategories(flattenTree(list).map((f) => ({ value: f.slug, label: f.label })));
+    });
+  }, []);
   const [stock, setStock] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [existingImage, setExistingImage] = useState<string | null>(null);
@@ -118,6 +125,7 @@ export default function SellerDashboard() {
       .from('products')
       .select('*')
       .eq('seller_id', sid)
+      .is('deleted_at', null)
       .order('created_at', { ascending: false });
 
     if (!error) setProducts(data || []);
@@ -235,7 +243,10 @@ export default function SellerDashboard() {
   }
 
   async function handleDelete(id: string) {
-    await supabase.from('products').delete().eq('id', id);
+    const reason = window.prompt('دلیل حذف محصول را بنویسید (محصول بایگانی می‌شود و سوابق سفارش‌ها حفظ می‌شود):');
+    if (!reason || !reason.trim()) return;
+    const res = await supabase.rpc('archive_product', { p_id: id, p_reason: reason.trim() });
+    if (res.error) { alert('حذف انجام نشد: ' + res.error.message); return; }
     if (sellerId) fetchMyProducts(sellerId);
   }
 

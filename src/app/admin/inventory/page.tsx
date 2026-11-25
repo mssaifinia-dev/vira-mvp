@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { flattenTree, loadCategories } from '@/lib/categories';
 import { supabase } from '@/lib/supabase';
 import * as XLSX from 'xlsx';
 
@@ -22,7 +23,7 @@ type SellerInfo = {
   shop_name: string;
 };
 
-const categories = [
+const fallbackCategories = [
   { value: 'ftth', label: 'تجهیزات FTTH' },
   { value: 'smart-home', label: 'خانه هوشمند' },
   { value: 'car-parts', label: 'قطعات خودرو' },
@@ -39,6 +40,12 @@ export default function AdminInventoryPage() {
   const [uploading, setUploading] = useState(false);
   const [excelUploading, setExcelUploading] = useState(false);
   const [sellerFilter, setSellerFilter] = useState('all');
+  const [categories, setCategories] = useState(fallbackCategories);
+  useEffect(() => {
+    loadCategories().then((list) => {
+      if (list.length) setCategories(flattenTree(list).map((f) => ({ value: f.slug, label: f.label })));
+    });
+  }, []);
 
   const [editValues, setEditValues] = useState<Record<string, { price: string; stock: string }>>({});
 
@@ -80,7 +87,7 @@ export default function AdminInventoryPage() {
   }
 
   async function fetchSellers() {
-    const res = await supabase.from('sellers').select('id, shop_name').order('shop_name', { ascending: true });
+    const res = await supabase.from('seller_public').select('id, shop_name').order('shop_name', { ascending: true });
     setSellers(res.data || []);
   }
 
@@ -88,6 +95,7 @@ export default function AdminInventoryPage() {
     const res = await supabase
       .from('products')
       .select('id, name, description, category, price, original_price, is_special_offer, stock, image, seller_id')
+      .is('deleted_at', null)
       .order('name', { ascending: true });
 
     setProducts(res.data || []);
@@ -234,7 +242,11 @@ export default function AdminInventoryPage() {
   }
 
   async function handleDeleteProduct(id: string) {
-    await supabase.from('products').delete().eq('id', id);
+    const reason = window.prompt('دلیل حذف محصول را بنویسید (محصول بایگانی می‌شود و سوابق سفارش‌ها حفظ می‌شود):');
+    if (!reason || !reason.trim()) return;
+    const res = await supabase.rpc('archive_product', { p_id: id, p_reason: reason.trim() });
+    if (res.error) { setError('حذف انجام نشد: ' + res.error.message); return; }
+    setMessage('محصول بایگانی شد.');
     fetchProducts();
   }
 

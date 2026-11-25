@@ -5,11 +5,13 @@ import { supabase } from '@/lib/supabase';
 import { strings } from '@/lib/strings';
 import ZoomableImage from '@/components/ZoomableImage';
 import { sendSms } from '@/lib/sms';
+import { useMyPerms } from '@/lib/useMyPerms';
+import { can } from '@/lib/permissions';
 
 type Seller = { id: string; shop_name: string; phone: string; city: string; is_approved: boolean; };
 type Product = { id: string; name: string; category: string; price: number; stock: number; };
 type Order = { id: string; full_name: string; phone: string; quantity: number; total_price: number; status: string; created_at: string; payment_method: string; };
-type Technician = { id: string; full_name: string; phone: string; city: string; specialty: string; national_id: string; experience: string; is_approved: boolean; created_at: string; photo_url: string | null; };
+type Technician = { id: string; full_name: string; phone: string; city: string; specialty: string; national_id: string; experience: string; is_approved: boolean; created_at: string; photo_url: string | null; deleted_at?: string | null; delete_reason?: string | null; };
 type ServiceRequest = { id: string; issue_type: string; description: string; address: string; phone: string; status: string; created_at: string; technician_id: string | null; };
 
 const statusMap: Record<string, string> = {
@@ -43,17 +45,28 @@ const iranCitiesList = [
 ];
 
 const managementLinks = [
-  { href: '/admin/reports', icon: '📊', title: 'گزارش‌های کلی', color: '#16a34a' },
-  { href: '/admin/support', icon: '💬', title: 'پیام‌های پشتیبانی', color: '#1e3a8a' },
-  { href: '/admin/customers', icon: '🗂️', title: 'بایگانی مشتریان', color: '#8b5cf6' },
-  { href: '/admin/discounts', icon: '🎟️', title: 'کدهای تخفیف', color: '#dc2626' },
-  { href: '/admin/finance', icon: '💰', title: 'سود و زیان', color: '#7c3aed' },
-  { href: '/admin/inventory', icon: '📦', title: 'مدیریت انبار', color: '#f59e0b' },
-  { href: '/admin/advertisements', icon: '📢', title: 'تبلیغات', color: '#f59e0b' },
-  { href: '/admin/about', icon: 'ℹ️', title: 'درباره ما', color: '#0891b2' },
-  { href: '/admin/manage-academy', icon: '📚', title: 'آکادمی ویرا', color: '#0d9488' },
-  { href: '/admin/manage-ai', icon: '🤖', title: 'Vira AI', color: '#4f46e5' },
-  { href: '/admin/manage-services', icon: '🛠️', title: 'خدمات و مراکز مخابراتی', color: '#0f766e' },
+  { href: '/admin/reports', icon: '📊', title: 'گزارش‌های کلی', color: '#16a34a', module: 'reports' },
+  { href: '/admin/support', icon: '💬', title: 'پیام‌های پشتیبانی', color: '#1e3a8a', module: 'support' },
+  { href: '/admin/sellers', icon: '🏪', title: 'مدیریت فروشندگان', color: '#0ea5e9', module: 'sellers' },
+  { href: '/admin/requests', icon: '🧰', title: 'مدیریت درخواست‌های تکنسین', color: '#ea580c', module: 'requests' },
+  { href: '/admin/customers', icon: '🗂️', title: 'بایگانی مشتریان', color: '#8b5cf6', module: 'customers' },
+  { href: '/admin/history', icon: '🕘', title: 'تاریخچه تغییرات و بازگردانی', color: '#7c3aed', module: 'history' },
+  { href: '/admin/backups', icon: '💾', title: 'پشتیبان‌گیری و بازیابی', color: '#0f766e', module: 'backups' },
+  { href: '/admin/discounts', icon: '🎟️', title: 'کدهای تخفیف', color: '#dc2626', module: 'discounts' },
+  { href: '/admin/finance', icon: '💰', title: 'سود و زیان', color: '#7c3aed', module: 'finance' },
+  { href: '/admin/inventory', icon: '📦', title: 'مدیریت انبار', color: '#f59e0b', module: 'inventory' },
+  { href: '/admin/advertisements', icon: '📢', title: 'تبلیغات', color: '#f59e0b', module: 'advertisements' },
+  { href: '/admin/about', icon: 'ℹ️', title: 'درباره ما', color: '#0891b2', module: 'content' },
+  { href: '/admin/manage-academy', icon: '📚', title: 'آکادمی ویرا', color: '#0d9488', module: 'academy' },
+  { href: '/admin/manage-ai', icon: '🤖', title: 'Vira AI', color: '#4f46e5', module: 'content' },
+  { href: '/admin/manage-services', icon: '🛠️', title: 'خدمات و مراکز مخابراتی', color: '#0f766e', module: 'services' },
+  { href: '/admin/categories', icon: '🗃️', title: 'دسته‌بندی‌های فروشگاه و انبار', color: '#d97706', module: 'categories' },
+  { href: '/admin/finance-invoices', icon: '🧾', title: 'فاکتورهای خدمات و تسویه تکنسین‌ها', color: '#0d9488', module: 'finance' },
+  { href: '/admin/ftth-rules', icon: '📶', title: 'قواعد شماره مجازی FTTH', color: '#0369a1', module: 'services' },
+  { href: '/admin/settlement', icon: '🤝', title: 'تقسیم درآمد و ذی‌نفعان (پورسانت، شرکا)', color: '#b45309', module: 'finance' },
+  { href: '/admin/ledger', icon: '📒', title: 'دفتر تسویه و آرشیو مالیاتی', color: '#4338ca', module: 'finance' },
+  { href: '/admin/technician-penalties', icon: '⚖️', title: 'عملکرد و امتیاز تکنسین‌ها', color: '#be123c', module: 'technicians' },
+  { href: '/admin/admins', icon: '🛡️', title: 'مدیران و سطح دسترسی', color: '#111827', module: 'admins' },
 ];
 
 export default function AdminPanel() {
@@ -61,9 +74,12 @@ export default function AdminPanel() {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [archivedTechs, setArchivedTechs] = useState<Technician[]>([]);
+  const [showArchivedTech, setShowArchivedTech] = useState(false);
   const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
   const [activeTab, setActiveTab] = useState<'orders' | 'sellers' | 'products' | 'technicians' | 'service'>('orders');
   const [loading, setLoading] = useState(true);
+  const myPerms = useMyPerms();
 
   const [techCityFilter, setTechCityFilter] = useState('all');
   const [techSpecialtyFilter, setTechSpecialtyFilter] = useState('all');
@@ -82,29 +98,46 @@ export default function AdminPanel() {
   async function fetchData() {
     const [s, p, o, t, sr] = await Promise.all([
       supabase.from('sellers').select('*').order('created_at', { ascending: false }),
-      supabase.from('products').select('*').order('created_at', { ascending: false }),
+      supabase.from('products').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
       supabase.from('technicians').select('*').order('created_at', { ascending: false }),
       supabase.from('service_requests').select('*').order('created_at', { ascending: false }),
     ]);
-    setSellers(s.data || []);
+    setSellers((s.data || []).filter((x: any) => !x.deleted_at));
     setProducts(p.data || []);
     setOrders(o.data || []);
-    setTechnicians(t.data || []);
+    setTechnicians((t.data || []).filter((x: any) => !x.deleted_at));
+    setArchivedTechs((t.data || []).filter((x: any) => !!x.deleted_at));
     setServiceRequests(sr.data || []);
     setLoading(false);
   }
 
   async function approveSeller(id: string) {
-    await supabase.from('sellers').update({ is_approved: true }).eq('id', id);
+    const upd = await supabase.from('sellers').update({ is_approved: true }).eq('id', id).select('id');
+    if (upd.error || !upd.data || upd.data.length === 0) {
+      alert('تأیید فروشنده انجام نشد: ' + (upd.error?.message || 'دسترسی لازم وجود ندارد (فایل‌های SQL مرحله ۱ اجرا شده‌اند؟)'));
+      return;
+    }
     const sellerRes = await supabase.from('sellers').select('phone').eq('id', id).single();
     if (sellerRes.data?.phone) {
       sendSms(sellerRes.data.phone, 'ویرا: حساب فروشندگی شما تایید شد. اکنون می‌توانید محصولات خود را ثبت کنید.');
     }
     fetchData();
   }
-  async function deleteSeller(id: string) { await supabase.from('sellers').delete().eq('id', id); fetchData(); }
-  async function deleteProduct(id: string) { await supabase.from('products').delete().eq('id', id); fetchData(); }
+  async function deleteSeller(id: string) {
+    const reason = window.prompt('دلیل حذف فروشنده را بنویسید.\nفروشنده بایگانی می‌شود و در «مدیریت فروشندگان» قابل بازیابی است:');
+    if (!reason || !reason.trim()) return;
+    const res = await supabase.rpc('admin_archive_seller', { p_id: id, p_reason: reason.trim() });
+    if (res.error) { alert('حذف انجام نشد: ' + res.error.message); return; }
+    fetchData();
+  }
+  async function deleteProduct(id: string) {
+    const reason = window.prompt('دلیل حذف محصول را بنویسید (محصول بایگانی می‌شود):');
+    if (!reason || !reason.trim()) return;
+    const res = await supabase.rpc('archive_product', { p_id: id, p_reason: reason.trim() });
+    if (res.error) { alert('حذف انجام نشد: ' + res.error.message); return; }
+    fetchData();
+  }
 
   async function updateOrderStatus(id: string, status: string) {
     const orderRes = await supabase.from('orders').select('user_id, full_name, phone').eq('id', id).single();
@@ -121,18 +154,7 @@ export default function AdminPanel() {
       });
 
       if (orderRes.data.phone) {
-        try {
-          await fetch('/api/sms/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              mobile: orderRes.data.phone,
-              message: 'ویرا: وضعیت سفارش شما به "' + statusText + '" تغییر یافت.',
-            }),
-          });
-        } catch (e) {
-          console.log('SMS send failed', e);
-        }
+        sendSms(orderRes.data.phone, 'ویرا: وضعیت سفارش شما به "' + statusText + '" تغییر یافت.');
       }
     }
 
@@ -140,14 +162,37 @@ export default function AdminPanel() {
   }
 
   async function approveTechnician(id: string) {
-    await supabase.from('technicians').update({ is_approved: true }).eq('id', id);
+    const upd = await supabase.from('technicians').update({ is_approved: true }).eq('id', id).select('id');
+    if (upd.error || !upd.data || upd.data.length === 0) {
+      alert('تأیید تکنسین انجام نشد: ' + (upd.error?.message || 'دسترسی لازم وجود ندارد'));
+      return;
+    }
     const techRes = await supabase.from('technicians').select('phone').eq('id', id).single();
     if (techRes.data?.phone) {
       sendSms(techRes.data.phone, 'ویرا: حساب تکنسینی شما تایید شد. اکنون می‌توانید درخواست‌های سرویس را دریافت کنید.');
     }
     fetchData();
   }
-  async function deleteTechnician(id: string) { await supabase.from('technicians').delete().eq('id', id); fetchData(); }
+  async function deleteTechnician(id: string) {
+    const reason = window.prompt('دلیل حذف تکنسین را بنویسید.\nتکنسین بایگانی می‌شود و سوابق او حفظ می‌شود:');
+    if (!reason || !reason.trim()) return;
+    const res = await supabase.rpc('admin_archive_technician', { p_id: id, p_reason: reason.trim() });
+    if (res.error) { alert('حذف انجام نشد: ' + res.error.message); return; }
+    fetchData();
+  }
+
+  async function restoreTechnician(id: string) {
+    if (!window.confirm('این تکنسین از بایگانی بازیابی و دوباره فعال شود؟')) return;
+    const res = await supabase.rpc('admin_restore_technician', { p_id: id });
+    if (res.error) { alert('بازیابی انجام نشد: ' + res.error.message); return; }
+    fetchData();
+  }
+  async function purgeTechnician(id: string, name: string) {
+    if (!window.confirm('حذف قطعی «' + name + '» برگشت‌پذیر نیست.\nفقط تکنسینی که هیچ درخواست، فاکتور، انصراف یا امتیاز منفی ندارد حذف می‌شود. ادامه می‌دهید؟')) return;
+    const res = await supabase.rpc('admin_purge_technician', { p_id: id });
+    if (res.error) { alert('حذف قطعی انجام نشد: ' + res.error.message); return; }
+    fetchData();
+  }
 
   if (loading) return (
     <main style={{minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center"}}>
@@ -163,10 +208,14 @@ export default function AdminPanel() {
     { key: 'products', label: strings.tab_products + ' (' + products.length + ')' },
   ];
 
+  const tabModule: Record<string, string> = { orders: 'orders', technicians: 'technicians', service: 'requests', sellers: 'sellers', products: 'inventory' };
+  const visibleTabs = tabs.filter((t) => can(myPerms.perms, tabModule[t.key], 'view'));
+  const currentTab = visibleTabs.some((t) => t.key === activeTab) ? activeTab : ((visibleTabs[0]?.key || activeTab) as typeof activeTab);
+
   const techCities = iranCitiesList;
   const techSpecialties = Object.keys(specialtyMap);
 
-  const filteredTechnicians = technicians.filter(t => {
+  const filteredTechnicians = (showArchivedTech ? archivedTechs : technicians).filter(t => {
     const cityMatch = techCityFilter === 'all' || t.city === techCityFilter;
     const specialtyMatch = techSpecialtyFilter === 'all' || t.specialty === techSpecialtyFilter;
     return cityMatch && specialtyMatch;
@@ -185,7 +234,7 @@ export default function AdminPanel() {
           gap:"16px",
           marginBottom:"32px"
         }}>
-          {managementLinks.map((link, i) => (
+          {managementLinks.filter((l) => can(myPerms.perms, l.module, 'view')).map((link, i) => (
             <a key={i} href={link.href} style={{textDecoration:"none"}}>
               <div style={{
                 background:"white",
@@ -221,11 +270,11 @@ export default function AdminPanel() {
         </div>
 
         <div style={{display:"flex", gap:"8px", marginBottom:"16px", flexWrap:"wrap"}}>
-          {tabs.map(tab => (
+          {visibleTabs.map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
               style={{padding:"8px 16px", borderRadius:"8px", border:"none", cursor:"pointer", fontWeight:"bold",
-                background: activeTab === tab.key ? "#1e3a8a" : "white",
-                color: activeTab === tab.key ? "white" : "#1e3a8a"
+                background: currentTab === tab.key ? "#1e3a8a" : "white",
+                color: currentTab === tab.key ? "white" : "#1e3a8a"
               }}>
               {tab.label}
             </button>
@@ -234,7 +283,7 @@ export default function AdminPanel() {
 
         <div style={{background:"white", borderRadius:"12px", overflow:"hidden", boxShadow:"0 1px 3px rgba(0,0,0,0.1)"}}>
 
-          {activeTab === 'orders' && (
+          {currentTab === 'orders' && (
             <table style={{width:"100%", borderCollapse:"collapse", textAlign:"right"}}>
               <thead style={{background:"#1e3a8a", color:"white"}}>
                 <tr>
@@ -284,7 +333,7 @@ export default function AdminPanel() {
             </table>
           )}
 
-          {activeTab === 'technicians' && (
+          {currentTab === 'technicians' && (
             <div>
               <div style={{display:"flex", gap:"8px", padding:"16px", borderBottom:"1px solid #f3f4f6", flexWrap:"wrap"}}>
                 <select value={techCityFilter} onChange={e => setTechCityFilter(e.target.value)}
@@ -297,6 +346,12 @@ export default function AdminPanel() {
                   <option value="all">همه تخصص‌ها</option>
                   {techSpecialties.map(s => <option key={s} value={s}>{specialtyMap[s] || s}</option>)}
                 </select>
+                {can(myPerms.perms, 'technicians', 'view_archive') && (
+                  <label style={{fontSize:"13px", color:"#374151", alignSelf:"center", display:"flex", gap:"6px", alignItems:"center", cursor:"pointer"}}>
+                    <input type="checkbox" checked={showArchivedTech} onChange={e => setShowArchivedTech(e.target.checked)} />
+                    نمایش بایگانی‌شده‌ها ({archivedTechs.length})
+                  </label>
+                )}
                 <span style={{fontSize:"13px", color:"#6b7280", alignSelf:"center"}}>
                   {filteredTechnicians.length} نتیجه
                 </span>
@@ -338,9 +393,25 @@ export default function AdminPanel() {
                         <span style={{padding:"4px 8px", borderRadius:"6px", fontSize:"12px", fontWeight:"bold",
                           background: t.is_approved ? "#d1fae5" : "#fef3c7",
                           color: t.is_approved ? "#065f46" : "#d97706"
-                        }}>{t.is_approved ? strings.status_approved : strings.status_pending}</span>
+                        }}>{t.deleted_at ? 'بایگانی‌شده' : (t.is_approved ? strings.status_approved : strings.status_pending)}</span>
                       </td>
                       <td style={{padding:"12px", display:"flex", gap:"8px"}}>
+                        {t.deleted_at ? (
+                          <>
+                            {can(myPerms.perms, 'technicians', 'restore') && (
+                              <button onClick={() => restoreTechnician(t.id)}
+                                style={{background:"#16a34a", color:"white", border:"none", borderRadius:"6px", padding:"4px 12px", cursor:"pointer", fontSize:"12px"}}>
+                                بازیابی
+                              </button>
+                            )}
+                            {can(myPerms.perms, 'technicians', 'delete') && (
+                              <button onClick={() => purgeTechnician(t.id, t.full_name)}
+                                style={{background:"#7f1d1d", color:"white", border:"none", borderRadius:"6px", padding:"4px 12px", cursor:"pointer", fontSize:"12px"}}>
+                                حذف قطعی
+                              </button>
+                            )}
+                          </>
+                        ) : (<>
                         {!t.is_approved && (
                           <button onClick={() => approveTechnician(t.id)}
                             style={{background:"#16a34a", color:"white", border:"none", borderRadius:"6px", padding:"4px 12px", cursor:"pointer", fontSize:"12px"}}>
@@ -351,6 +422,7 @@ export default function AdminPanel() {
                           style={{background:"#fee2e2", color:"#dc2626", border:"none", borderRadius:"6px", padding:"4px 12px", cursor:"pointer", fontSize:"12px"}}>
                           {strings.btn_delete}
                         </button>
+                        </>)}
                       </td>
                     </tr>
                   ))}
@@ -359,7 +431,7 @@ export default function AdminPanel() {
             </div>
           )}
 
-          {activeTab === 'service' && (
+          {currentTab === 'service' && (
             <table style={{width:"100%", borderCollapse:"collapse", textAlign:"right"}}>
               <thead style={{background:"#1e3a8a", color:"white"}}>
                 <tr>
@@ -402,7 +474,7 @@ export default function AdminPanel() {
             </table>
           )}
 
-          {activeTab === 'sellers' && (
+          {currentTab === 'sellers' && (
             <table style={{width:"100%", borderCollapse:"collapse", textAlign:"right"}}>
               <thead style={{background:"#1e3a8a", color:"white"}}>
                 <tr>
@@ -445,7 +517,7 @@ export default function AdminPanel() {
             </table>
           )}
 
-          {activeTab === 'products' && (
+          {currentTab === 'products' && (
             <table style={{width:"100%", borderCollapse:"collapse", textAlign:"right"}}>
               <thead style={{background:"#1e3a8a", color:"white"}}>
                 <tr>

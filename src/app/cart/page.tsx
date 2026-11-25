@@ -60,7 +60,7 @@ export default function CartPage() {
       .select('id, quantity, product_id, products(id, name, price, image, stock, category, seller_id)')
       .eq('user_id', user.id);
 
-    setItems((cartRes.data as any) || []);
+    setItems(((cartRes.data as any) || []).filter((x: any) => x.products)); // محصولات بایگانی‌شده از سبد حذف می‌شوند
     setLoading(false);
   }
 
@@ -92,37 +92,16 @@ export default function CartPage() {
       return;
     }
 
-    const codeRes = await supabase
-      .from('discount_codes')
-      .select('*')
-      .eq('code', discountInput.toUpperCase().trim())
-      .eq('is_active', true)
-      .maybeSingle();
+    const codeRes = await supabase.rpc('check_discount_code', { p_code: discountInput.trim() });
 
-    if (!codeRes.data) {
-      setDiscountError('کد تخفیف معتبر نیست');
+    if (codeRes.error || !codeRes.data || !codeRes.data.valid) {
+      setDiscountError((codeRes.data && codeRes.data.message) || 'کد تخفیف معتبر نیست');
       setAppliedDiscount(null);
       setCheckingDiscount(false);
       return;
     }
 
-    const discountData = codeRes.data;
-
-    if (discountData.expires_at && new Date(discountData.expires_at) < new Date()) {
-      setDiscountError('این کد تخفیف منقضی شده است');
-      setAppliedDiscount(null);
-      setCheckingDiscount(false);
-      return;
-    }
-
-    if (discountData.max_uses !== null && discountData.used_count >= discountData.max_uses) {
-      setDiscountError('سقف استفاده از این کد تمام شده است');
-      setAppliedDiscount(null);
-      setCheckingDiscount(false);
-      return;
-    }
-
-    setAppliedDiscount({ code: discountData.code, percent: discountData.discount_percent, id: discountData.id });
+    setAppliedDiscount({ code: codeRes.data.code, percent: Number(codeRes.data.percent), id: '' });
     setCheckingDiscount(false);
   }
 
@@ -130,19 +109,6 @@ export default function CartPage() {
     setAppliedDiscount(null);
     setDiscountInput('');
     setDiscountError('');
-  }
-
-  async function getCommissionPercent(category: string): Promise<number> {
-    const res = await supabase
-      .from('category_commissions')
-      .select('commission_percent')
-      .eq('category', category)
-      .maybeSingle();
-
-    if (res.data && res.data.commission_percent !== null) {
-      return res.data.commission_percent;
-    }
-    return 5;
   }
 
   async function handleCheckout() {
@@ -164,79 +130,32 @@ export default function CartPage() {
     const userRes = await supabase.auth.getUser();
     const user = userRes.data.user;
 
-    const discountRatio = appliedDiscount ? (1 - appliedDiscount.percent / 100) : 1;
+    // قیمت، تخفیف، کمیسیون و موجودی همگی در سرور محاسبه و کنترل می‌شوند
+    const placeRes = await supabase.rpc('place_order', {
+      p_items: items.map((i) => ({ product_id: i.products.id, quantity: i.quantity })),
+      p_full_name: fullName,
+      p_phone: phone,
+      p_address: address,
+      p_payment_method: paymentMethod,
+      p_discount_code: appliedDiscount ? appliedDiscount.code : null,
+    });
 
-    const orderRows = [];
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      const itemTotalBeforeDiscount = item.products.price * item.quantity;
-      const itemTotal = Math.round(itemTotalBeforeDiscount * discountRatio);
-      const itemDiscountAmount = itemTotalBeforeDiscount - itemTotal;
-
-      let commissionAmount = 0;
-      let sellerPayout = 0;
-      let sellerId: string | null = null;
-
-      if (item.products.seller_id) {
-        sellerId = item.products.seller_id;
-        const commissionPercent = await getCommissionPercent(item.products.category);
-        commissionAmount = Math.round(itemTotal * (commissionPercent / 100));
-        sellerPayout = itemTotal - commissionAmount;
-      }
-
-      orderRows.push({
-        user_id: user!.id,
-        product_id: item.products.id,
-        quantity: item.quantity,
-        total_price: itemTotal,
-        full_name: fullName,
-        phone: phone,
-        address: address,
-        seller_id: sellerId,
-        commission_amount: commissionAmount,
-        seller_payout: sellerPayout,
-        discount_code: appliedDiscount ? appliedDiscount.code : null,
-        discount_amount: itemDiscountAmount,
-        payment_method: paymentMethod,
-        payment_status: paymentMethod === 'online' ? 'unpaid' : 'not_applicable',
-      });
-    }
-
-    const insertRes = await supabase.from('orders').insert(orderRows).select('id');
-
-    if (insertRes.error) {
-      setError(insertRes.error.message);
+    if (placeRes.error || !placeRes.data) {
+      setError(placeRes.error ? placeRes.error.message : 'ثبت سفارش ناموفق بود');
       setSubmitting(false);
       return;
     }
-
-    if (appliedDiscount) {
-      const currentCodeRes = await supabase
-        .from('discount_codes')
-        .select('used_count')
-        .eq('id', appliedDiscount.id)
-        .single();
-
-      if (currentCodeRes.data) {
-        await supabase
-          .from('discount_codes')
-          .update({ used_count: currentCodeRes.data.used_count + 1 })
-          .eq('id', appliedDiscount.id);
-      }
-    }
+    const orderIds: string[] = placeRes.data.order_ids || [];
 
     // پرداخت آنلاین: کاربر را به درگاه زرین‌پال هدایت می‌کنیم
     if (paymentMethod === 'online') {
-      const orderIds = (insertRes.data || []).map((o: any) => o.id);
-
       try {
+        const sess = await supabase.auth.getSession();
         const payRes = await fetch('/api/payment/request', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (sess.data.session?.access_token || '') },
           body: JSON.stringify({
             orderIds,
-            amountToman: total,
             mobile: phone,
             description: `پرداخت سفارش ویرا - ${fullName}`,
           }),

@@ -10,6 +10,8 @@ type Technician = {
   id: string;
   full_name: string;
   is_approved: boolean;
+  restricted_until?: string | null;
+  restriction_reason?: string | null;
 };
 
 type ServiceRequest = {
@@ -58,6 +60,12 @@ export default function TechnicianDashboard() {
   const [etaInput, setEtaInput] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<'new' | 'active' | 'history'>('active');
   const [totalEarned, setTotalEarned] = useState(0);
+  const [penaltyPoints, setPenaltyPoints] = useState(0);
+  const [releaseTarget, setReleaseTarget] = useState<ServiceRequest | null>(null);
+  const [releaseReason, setReleaseReason] = useState('');
+  const [releaseJustified, setReleaseJustified] = useState(false);
+  const [releaseBusy, setReleaseBusy] = useState(false);
+  const [releaseErr, setReleaseErr] = useState('');
   const [maps, setMaps] = useState<CatalogMaps | null>(null);
 
   useEffect(() => {
@@ -73,7 +81,7 @@ export default function TechnicianDashboard() {
 
     const techRes = await supabase
       .from('technicians')
-      .select('id, full_name, is_approved')
+      .select('id, full_name, is_approved, restricted_until, restriction_reason')
       .eq('user_id', user.id)
       .single();
 
@@ -83,6 +91,8 @@ export default function TechnicianDashboard() {
     }
 
     setTechnician(techRes.data);
+    const pen = await supabase.from('technician_penalties').select('points').eq('technician_id', techRes.data.id).eq('status', 'active');
+    if (pen.data) setPenaltyPoints((pen.data as any[]).reduce((a, x) => a + (x.points || 0), 0));
     loadCatalogMaps().then(setMaps);
     await fetchRequests(techRes.data.id);
     await fetchEarnings(techRes.data.id);
@@ -134,68 +144,62 @@ export default function TechnicianDashboard() {
 
   async function acceptRequest(requestId: string) {
     const eta = parseInt(etaInput[requestId] || '20');
-
-    const reqInfo = await supabase
-      .from('service_requests')
-      .select('customer_id, phone')
-      .eq('id', requestId)
-      .single();
-
-    await supabase
-      .from('service_requests')
-      .update({
-        technician_id: technician!.id,
-        status: 'accepted',
-        accepted_at: new Date().toISOString(),
-        eta_minutes: eta,
-      })
-      .eq('id', requestId);
-
-    if (reqInfo.data) {
-      await supabase.from('notifications').insert({
-        user_id: reqInfo.data.customer_id,
-        title: 'تکنسین یافت شد',
-        message: technician!.full_name + ' درخواست شما را قبول کرد و تا ' + eta + ' دقیقه دیگر می‌رسد',
-        link: '/technician/track/' + requestId,
-      });
-
-      if (reqInfo.data.phone) {
-        sendSms(
-          reqInfo.data.phone,
-          'ویرا: تکنسین ' + technician!.full_name + ' درخواست شما را قبول کرد و تا حدود ' + eta + ' دقیقه دیگر می‌رسد.'
-        );
-      }
+    // پذیرش اتمیک در دیتابیس: هم‌زمانی دو تکنسین و دو کار فعال همزمان غیرممکن است
+    const res = await supabase.rpc('technician_accept_request', { p_request: requestId, p_eta: eta });
+    if (res.error) {
+      alert(res.error.message);
+      fetchRequests();
+      return;
     }
-
+    if (res.data && res.data.phone) {
+      sendSms(
+        res.data.phone,
+        'ویرا: تکنسین ' + res.data.tech_name + ' درخواست شما را قبول کرد و تا حدود ' + res.data.eta + ' دقیقه دیگر می‌رسد.'
+      );
+    }
     setActiveTab('active');
     fetchRequests();
   }
 
   async function startWork(requestId: string) {
-    const reqInfo = await supabase
-      .from('service_requests')
-      .select('customer_id, phone')
-      .eq('id', requestId)
-      .single();
-
-    await supabase
-      .from('service_requests')
-      .update({ status: 'in_progress' })
-      .eq('id', requestId);
-
-    if (reqInfo.data) {
-      await supabase.from('notifications').insert({
-        user_id: reqInfo.data.customer_id,
-        title: 'شروع کار',
-        message: 'تکنسین کار روی درخواست شما را شروع کرد',
-        link: '/technician/track/' + requestId,
-      });
-
-      if (reqInfo.data.phone) {
-        sendSms(reqInfo.data.phone, 'ویرا: تکنسین کار روی درخواست شما را شروع کرد.');
-      }
+    const res = await supabase.rpc('technician_start_request', { p_request: requestId });
+    if (res.error) {
+      alert(res.error.message);
+      fetchRequests();
+      return;
     }
+    if (res.data && res.data.phone) {
+      sendSms(res.data.phone, 'ویرا: تکنسین کار روی درخواست شما را شروع کرد.');
+    }
+    fetchRequests();
+  }
 
+  function openRelease(r: ServiceRequest) {
+    setReleaseTarget(r);
+    setReleaseReason('');
+    setReleaseJustified(false);
+    setReleaseErr('');
+  }
+
+  async function submitRelease() {
+    if (!releaseTarget) return;
+    if (releaseReason.trim().length < 5) { setReleaseErr('علت را (حداقل ۵ کاراکتر) بنویسید'); return; }
+    setReleaseBusy(true);
+    const res = await supabase.rpc('technician_release_request', {
+      p_request: releaseTarget.id,
+      p_reason: releaseReason.trim(),
+      p_justified: releaseJustified,
+    });
+    setReleaseBusy(false);
+    if (res.error) { setReleaseErr(res.error.message); return; }
+    setReleaseTarget(null);
+    if (res.data && res.data.penalty_points > 0) {
+      alert('درخواست آزاد شد. ' + res.data.penalty_points + ' امتیاز منفی ثبت شد' + (res.data.appeal_pending ? ' (درخواست بررسی شما برای مدیر ارسال شد).' : '.') + (res.data.restricted ? '\nبه‌دلیل تکرار انصراف، پذیرش درخواست جدید موقتاً محدود شد.' : ''));
+    }
+    const { data: techRow } = await supabase.from('technicians').select('id, full_name, is_approved, restricted_until, restriction_reason').eq('id', technician!.id).single();
+    if (techRow) setTechnician(techRow);
+    const pen = await supabase.from('technician_penalties').select('points').eq('technician_id', technician!.id).eq('status', 'active');
+    if (pen.data) setPenaltyPoints((pen.data as any[]).reduce((acc, x) => acc + (x.points || 0), 0));
     fetchRequests();
   }
 
@@ -245,6 +249,22 @@ export default function TechnicianDashboard() {
           سلام {technician?.full_name} 👋
         </h1>
         <p style={{color:"#6b7280", fontSize:"14px", marginBottom:"20px"}}>پنل تکنسین</p>
+
+        <div style={{marginBottom:"12px"}}>
+          <a href="/technician/finance" style={{color:"#1e3a8a", fontSize:"14px", textDecoration:"none"}}>گزارش مالی و تسویه‌ی من ←</a>
+        </div>
+
+        {technician?.restricted_until && new Date(technician.restricted_until) > new Date() && (
+          <div style={{background:"#fee2e2", color:"#b91c1c", borderRadius:"12px", padding:"12px 16px", marginBottom:"16px", fontSize:"14px", lineHeight:1.9}}>
+            پذیرش درخواست جدید برای شما تا {new Date(technician.restricted_until).toLocaleString('fa-IR')} محدود شده است
+            {technician.restriction_reason ? ' (' + technician.restriction_reason + ')' : ''}.
+          </div>
+        )}
+        {penaltyPoints > 0 && (
+          <div style={{background:"#fef3c7", color:"#92400e", borderRadius:"12px", padding:"10px 16px", marginBottom:"16px", fontSize:"13px"}}>
+            امتیاز منفی فعال شما: {penaltyPoints.toLocaleString('fa-IR')} — اگر انصراف شما موجه بوده، هنگام ثبت انصراف «درخواست بررسی» را فعال کنید تا مدیر بررسی کند.
+          </div>
+        )}
 
         {/* آمار خلاصه */}
         <div style={{display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:"12px", marginBottom:"24px"}}>
@@ -329,6 +349,12 @@ export default function TechnicianDashboard() {
                       اتمام کار و صدور فاکتور
                     </button>
                   )}
+                  <button
+                    onClick={() => openRelease(r)}
+                    style={{marginRight:"8px", background:"#fee2e2", color:"#b91c1c", padding:"8px 16px", borderRadius:"8px", border:"none", cursor:"pointer", fontSize:"13px"}}
+                  >
+                    {r.status === 'assigned' ? 'رد درخواست' : 'انصراف از کار'}
+                  </button>
                 </div>
               </div>
             ))
@@ -408,6 +434,31 @@ export default function TechnicianDashboard() {
         )}
 
       </div>
+      {releaseTarget && (
+        <div onClick={() => !releaseBusy && setReleaseTarget(null)} style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:"16px"}}>
+          <div dir="rtl" onClick={(e) => e.stopPropagation()} style={{background:"white", borderRadius:"14px", padding:"20px", width:"100%", maxWidth:"440px"}}>
+            <h2 style={{fontSize:"17px", fontWeight:"bold", color:"#b91c1c", margin:0}}>{releaseTarget.status === 'assigned' ? 'رد درخواست' : 'انصراف از کار'}</h2>
+            <p style={{fontSize:"13px", color:"#6b7280", lineHeight:1.9, marginTop:"8px"}}>
+              {releaseTarget.status === 'assigned'
+                ? 'درخواست به حالت آزاد برمی‌گردد و جریمه‌ای ندارد.'
+                : 'درخواست حذف نمی‌شود و به حالت آزاد برمی‌گردد تا تکنسین دیگری آن را بپذیرد؛ مشتری مطلع می‌شود. انصراف پس از پذیرش امتیاز منفی دارد و تکرار آن باعث محدودیت موقت می‌شود.'}
+            </p>
+            <label style={{display:"block", fontSize:"13px", marginTop:"12px", marginBottom:"4px"}}>علت *</label>
+            <textarea rows={3} value={releaseReason} onChange={(e) => { setReleaseReason(e.target.value); setReleaseErr(''); }} style={{width:"100%", boxSizing:"border-box", border:"1px solid #d1d5db", borderRadius:"8px", padding:"8px", fontSize:"14px"}} />
+            {releaseTarget.status !== 'assigned' && (
+              <label style={{display:"flex", gap:"8px", alignItems:"flex-start", fontSize:"13px", marginTop:"10px", lineHeight:1.8}}>
+                <input type="checkbox" checked={releaseJustified} onChange={(e) => setReleaseJustified(e.target.checked)} style={{marginTop:"4px"}} />
+                دلیل انصراف موجه است (شرایط اضطراری، مشکل مشتری، اطلاعات اشتباه یا خارج از محدوده‌ی خدمت) و درخواست بررسی توسط مدیر دارم
+              </label>
+            )}
+            {releaseErr && <p style={{color:"#dc2626", fontSize:"13px", marginTop:"8px"}}>{releaseErr}</p>}
+            <div style={{display:"flex", gap:"8px", justifyContent:"flex-end", marginTop:"16px"}}>
+              <button onClick={() => setReleaseTarget(null)} disabled={releaseBusy} style={{background:"#e5e7eb", color:"#374151", padding:"8px 18px", borderRadius:"8px", border:"none", cursor:"pointer"}}>انصراف</button>
+              <button onClick={submitRelease} disabled={releaseBusy} style={{background:"#dc2626", color:"white", padding:"8px 18px", borderRadius:"8px", border:"none", cursor:"pointer", opacity: releaseBusy ? 0.6 : 1}}>{releaseBusy ? 'در حال ثبت...' : 'تأیید'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

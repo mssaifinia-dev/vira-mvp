@@ -132,6 +132,7 @@ export default function ManageServicesPage() {
               { name: 'code', label: 'کد انگلیسی یکتا', type: 'text', required: true, placeholder: 'copper_phone' },
               { name: 'kind', label: 'نوع', type: 'select', required: true, options: KINDS },
               { name: 'requires_center', label: 'انتخاب مرکز مخابراتی اجباری باشد', type: 'boolean' },
+              { name: 'requires_ftth_number', label: 'ثبت «شماره مجازی FTTH» اجباری باشد (برای خدمات FTTH)', type: 'boolean' },
               { name: 'description', label: 'توضیح', type: 'textarea' },
               { name: 'sort_order', label: 'ترتیب', type: 'number' },
               { name: 'is_active', label: 'فعال', type: 'boolean' },

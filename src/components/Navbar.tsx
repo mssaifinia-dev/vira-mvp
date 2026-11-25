@@ -144,7 +144,23 @@ export default function Navbar() {
 
         </div>
 
-                  <div style={{display: "flex", justifyContent: "flex-end", gap: "10px", flexWrap: "wrap", alignItems: "center"}}>
+                  <div style={{display: "flex", justifyContent: "flex-start", gap: "10px", flexWrap: "wrap", alignItems: "center"}}>
+
+          {user ? (
+            <button
+              onClick={handleLogout}
+              style={{background: "#dc2626", color: "white", border: "1px solid #dc2626", borderRadius: "8px", padding: "8px 16px", cursor: "pointer", fontSize: "14px"}}
+            >
+              خروج
+            </button>
+          ) : (
+            <Link
+              href="/auth"
+              style={{background: "#16a34a", color: "white", borderRadius: "8px", padding: "8px 16px", textDecoration: "none", fontWeight: "bold", fontSize: "14px", border: "1px solid #16a34a"}}
+            >
+              ورود
+            </Link>
+          )}
 
           <Link href="/marketplace" style={tabStyle}>فروشگاه</Link>
           <Link href="/cart" style={tabStyle}>سبد خرید</Link>
@@ -182,22 +198,6 @@ export default function Navbar() {
           {isAdmin ? (
             <Link href="/admin" style={tabStyle}>پنل مدیریت</Link>
           ) : null}
-
-          {user ? (
-            <button
-              onClick={handleLogout}
-              style={{background: "#dc2626", color: "white", border: "1px solid #dc2626", borderRadius: "8px", padding: "8px 16px", cursor: "pointer", fontSize: "14px"}}
-            >
-              خروج
-            </button>
-          ) : (
-            <Link
-              href="/auth"
-              style={{background: "#16a34a", color: "white", borderRadius: "8px", padding: "8px 16px", textDecoration: "none", fontWeight: "bold", fontSize: "14px", border: "1px solid #16a34a"}}
-            >
-              ورود
-            </Link>
-          )}
 
         </div>
       </div>

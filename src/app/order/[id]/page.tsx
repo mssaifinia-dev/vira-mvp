@@ -49,19 +49,6 @@ export default function OrderPage() {
     setPhone(cleaned);
   }
 
-  async function getCommissionPercent(category: string): Promise<number> {
-    const res = await supabase
-      .from('category_commissions')
-      .select('commission_percent')
-      .eq('category', category)
-      .maybeSingle();
-
-    if (res.data && res.data.commission_percent !== null) {
-      return res.data.commission_percent;
-    }
-    return 5;
-  }
-
   async function handleOrder() {
     setSubmitting(true);
     setError('');
@@ -78,35 +65,14 @@ export default function OrderPage() {
       return;
     }
 
-    const userRes = await supabase.auth.getUser();
-    const user = userRes.data.user;
-
-    const totalPrice = product!.price * quantity;
-    let commissionAmount = 0;
-    let sellerPayout = 0;
-    let sellerId: string | null = null;
-
-    if (product!.seller_id) {
-      sellerId = product!.seller_id;
-      const commissionPercent = await getCommissionPercent(product!.category);
-      commissionAmount = Math.round(totalPrice * (commissionPercent / 100));
-      sellerPayout = totalPrice - commissionAmount;
-    }
-
-    const discountAmountTotal = product!.original_price ? (product!.original_price - product!.price) * quantity : 0;
-
-    const { error } = await supabase.from('orders').insert({
-      user_id: user!.id,
-      product_id: product!.id,
-      quantity: quantity,
-      total_price: totalPrice,
-      full_name: fullName,
-      phone: phone,
-      address: address,
-      seller_id: sellerId,
-      commission_amount: commissionAmount,
-      seller_payout: sellerPayout,
-      discount_amount: discountAmountTotal,
+    // قیمت، کمیسیون و موجودی در سرور محاسبه می‌شود
+    const { error } = await supabase.rpc('place_order', {
+      p_items: [{ product_id: product!.id, quantity }],
+      p_full_name: fullName,
+      p_phone: phone,
+      p_address: address,
+      p_payment_method: 'cash_on_delivery',
+      p_discount_code: null,
     });
 
     if (error) setError('خطا در ثبت سفارش: ' + error.message);
