@@ -120,7 +120,7 @@ export async function createBackup(opts: {
     }
     if (scope === 'all') file.storage_manifest = await storageManifest();
 
-    let payload: Buffer<ArrayBufferLike> = Buffer.from(JSON.stringify(file), 'utf-8');
+    let payload = Buffer.from(JSON.stringify(file), 'utf-8');
     const key = getKey();
     const encrypted = !!key;
     if (key) payload = encrypt(payload, key);
@@ -182,7 +182,7 @@ export async function loadBackup(runId: string): Promise<{ file: BackupFile; run
 
   const dl = await supabaseAdmin.storage.from(BACKUP_BUCKET).download(run.storage_path);
   if (dl.error || !dl.data) throw new Error('دانلود فایل پشتیبان ناموفق بود: ' + (dl.error?.message || ''));
-  let buf: Buffer<ArrayBufferLike> = Buffer.from(await dl.data.arrayBuffer());
+  let buf: Buffer = Buffer.from(await dl.data.arrayBuffer());
 
   if (run.checksum && sha256(buf) !== run.checksum) {
     throw new Error('اعتبارسنجی ناموفق: checksum فایل با مقدار ثبت‌شده مطابقت ندارد (فایل آسیب دیده یا تغییر کرده است)');
