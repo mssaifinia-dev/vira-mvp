@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { sendSms } from '@/lib/sms';
 import { loadCatalogMaps, type CatalogMaps } from '@/lib/serviceCatalog';
 import RequestDetails from '@/components/RequestDetails';
 
@@ -151,12 +150,6 @@ export default function TechnicianDashboard() {
       fetchRequests();
       return;
     }
-    if (res.data && res.data.phone) {
-      sendSms(
-        res.data.phone,
-        'ویرا: تکنسین ' + res.data.tech_name + ' درخواست شما را قبول کرد و تا حدود ' + res.data.eta + ' دقیقه دیگر می‌رسد.'
-      );
-    }
     setActiveTab('active');
     fetchRequests();
   }
@@ -167,9 +160,6 @@ export default function TechnicianDashboard() {
       alert(res.error.message);
       fetchRequests();
       return;
-    }
-    if (res.data && res.data.phone) {
-      sendSms(res.data.phone, 'ویرا: تکنسین کار روی درخواست شما را شروع کرد.');
     }
     fetchRequests();
   }

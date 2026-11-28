@@ -43,6 +43,31 @@ export default function InvoicePage() {
   const [items, setItems] = useState<any[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [showPayout, setShowPayout] = useState(false);
+  const [confCode, setConfCode] = useState('');
+  const [confMsg, setConfMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [confBusy, setConfBusy] = useState(false);
+
+  async function submitConfirmCode() {
+    if (!existing) return;
+    setConfBusy(true); setConfMsg(null);
+    const r = await supabase.rpc('confirm_invoice_with_code', { p_invoice: existing.id, p_code: confCode.trim() });
+    setConfBusy(false);
+    if (r.error) { setConfMsg({ ok: false, text: r.error.message }); return; }
+    const d: any = r.data || {};
+    if (!d.ok) { setConfMsg({ ok: false, text: d.message || 'ناموفق' }); return; }
+    setConfMsg({ ok: true, text: 'فاکتور با کد مشتری تأیید شد.' });
+    setExisting({ ...existing, status: 'customer_approved', approved_via: 'sms_code' });
+    setConfCode('');
+  }
+  async function resendConfirmCode() {
+    if (!existing) return;
+    setConfBusy(true); setConfMsg(null);
+    const r = await supabase.rpc('invoice_resend_code', { p_invoice: existing.id });
+    setConfBusy(false);
+    if (r.error) { setConfMsg({ ok: false, text: r.error.message }); return; }
+    const d: any = r.data || {};
+    setConfMsg({ ok: !!d.ok, text: d.ok ? 'کد جدید به شماره‌ی مشتری پیامک شد.' : d.message || 'ناموفق' });
+  }
   const seq = useRef(0);
 
   useEffect(() => {
@@ -161,6 +186,23 @@ export default function InvoicePage() {
             </div>
             <p style={{ fontSize: 12, color: '#6b7280', marginTop: 12 }}>نرخ‌ها هنگام صدور فاکتور ثبت شده‌اند و تغییر بعدی نرخ‌ها روی این فاکتور اثری ندارد.</p>
           </div>
+          {showPayout && existing.status === 'issued' && (
+            <div style={{ background: 'white', borderRadius: 12, padding: 16, marginBottom: 16, border: '1px solid #bfdbfe' }}>
+              <b style={{ fontSize: 14, color: '#1e3a8a' }}>تأیید مشتری با کد پیامکی</b>
+              <p style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.9, margin: '6px 0 10px' }}>
+                یک کد ۶ رقمی به شماره‌ی مشتری پیامک شده است. کد را از خود مشتری بگیرید و اینجا وارد کنید. بدون کد مشتری، فاکتور فقط با تأیید استثنایی سرپرست مرکز ثبت می‌شود.
+              </p>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <input value={confCode} onChange={(e) => setConfCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} placeholder="------" inputMode="numeric"
+                  style={{ padding: 10, border: '1px solid #d1d5db', borderRadius: 8, fontSize: 16, letterSpacing: 4, textAlign: 'center', width: 140 }} />
+                <button onClick={submitConfirmCode} disabled={confBusy || confCode.length !== 6}
+                  style={{ background: '#16a34a', color: 'white', border: 'none', borderRadius: 8, padding: '10px 18px', cursor: 'pointer', opacity: confBusy || confCode.length !== 6 ? 0.5 : 1 }}>تأیید با کد</button>
+                <button onClick={resendConfirmCode} disabled={confBusy}
+                  style={{ background: '#e5e7eb', color: '#374151', border: 'none', borderRadius: 8, padding: '10px 18px', cursor: 'pointer' }}>ارسال مجدد کد</button>
+              </div>
+              {confMsg && <p style={{ fontSize: 13, marginTop: 10, color: confMsg.ok ? '#065f46' : '#b91c1c' }}>{confMsg.text}</p>}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 16 }}>
             <a href="/technician/dashboard" style={{ color: '#1e3a8a', fontSize: 14 }}>← بازگشت به داشبورد</a>
             <a href="/technician/finance" style={{ color: '#1e3a8a', fontSize: 14 }}>گزارش مالی و تسویه ←</a>

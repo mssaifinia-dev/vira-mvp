@@ -49,6 +49,14 @@ export default function TechnicianFinancePage() {
 
   useEffect(() => { load(); }, [load]);
 
+  async function requestPayout() {
+    setMsg(null);
+    const res = await supabase.rpc('technician_request_payout');
+    if (res.error) { setMsg({ ok: false, text: res.error.message }); return; }
+    setMsg({ ok: true, text: 'درخواست دریافت وجه برای ' + Number(res.data || 0).toLocaleString('fa-IR') + ' فاکتور ثبت شد و در صف مالی قرار گرفت.' });
+    load();
+  }
+
   async function saveBank() {
     setMsg(null);
     const res = await supabase.rpc('technician_set_bank_account', { p_iban: iban.trim(), p_holder: holder.trim(), p_bank: bankName.trim() || null });
@@ -97,6 +105,15 @@ export default function TechnicianFinancePage() {
               {stat('پرداخت‌شده', summary.paid_total, '#065f46')}
             </div>
             <p style={{ fontSize: 12, color: '#6b7280', marginTop: 10 }}>سهم شرکت: {money(summary.company_share_total)} تومان · ارزش افزوده‌ی فاکتورها: {money(summary.vat_total)} تومان</p>
+            {invoices.some((x: any) => x.status === 'finance_approved' && x.payout_status === 'pending') && (
+              <div style={{ marginTop: 12 }}>
+                {invoices.some((x: any) => x.status === 'finance_approved' && x.payout_status === 'pending' && !x.payout_requested_at) ? (
+                  <button onClick={requestPayout} style={{ background: '#16a34a', color: 'white', border: 'none', borderRadius: 8, padding: '10px 20px', cursor: 'pointer', fontSize: 14 }}>درخواست دریافت وجه</button>
+                ) : (
+                  <span style={{ fontSize: 13, color: '#92400e' }}>درخواست دریافت وجه شما ثبت شده و در انتظار واریز توسط مالی است.</span>
+                )}
+              </div>
+            )}
           </div>
         )}
 

@@ -471,7 +471,18 @@ export default function FinanceInvoicesPage() {
             <div>پرداخت مشتری: {detail.payment_status === 'paid' ? 'ثبت شده · ' + fmtDate(detail.customer_paid_at) : 'ثبت نشده'}</div>
             <div>رضایت‌سنجی: {detail.rating ? detail.rating + ' از ۵' : '—'}{detail.feedback ? ' · ' + detail.feedback : ''}</div>
             <div>تأیید مالی: {fmtDate(detail.finance_approved_at)}</div>
+            <div>روش تأیید مشتری: {detail.approved_via === 'sms_code' ? 'کد پیامکی مشتری ✓' : detail.approved_via === 'exception' ? 'استثنایی (بدون کد مشتری)' : detail.approved_via === 'happy_call' ? 'هپی‌کال' : detail.customer_approved_at ? 'خود مشتری در سایت' : '—'}</div>
+            <div>درخواست وجه تکنسین: {detail.payout_requested_at ? fmtDate(detail.payout_requested_at) : '—'}</div>
           </div>
+          {(detail.approved_via === 'exception' || (detail.risk_flags || []).length > 0 || detail.audit_result) && (
+            <div style={{ background: '#fef3c7', color: '#92400e', borderRadius: 10, padding: 10, fontSize: 13, lineHeight: 1.9, marginTop: 10 }}>
+              {detail.approved_via === 'exception' && <div>⚠ تأیید استثنایی؛ دلیل ثبت‌شده: {detail.exception_reason || '—'}</div>}
+              {(detail.risk_flags || []).map((f: string) => (
+                <div key={f}>⚠ {({ phone_is_technician: 'شماره‌ی مشتری با شماره‌ی یک تکنسین یکی است', phone_is_staff: 'شماره‌ی مشتری با شماره‌ی سرپرست/ادمین/فروشنده یکی است', phone_unregistered: 'شماره‌ی مشتری در سامانه سابقه ندارد', phone_repeat_technician: 'این شماره چند بار برای همین تکنسین ثبت شده', phone_invalid: 'شماره‌ی مشتری نامعتبر است' } as Record<string, string>)[f] || f}</div>
+              ))}
+              {detail.audit_result && <div>بازبینی: {detail.audit_result === 'ok' ? 'تأیید شد' : detail.audit_result === 'suspicious' ? 'مشکوک' : 'در دسترس نبود'}{detail.audit_note ? ' · ' + detail.audit_note : ''}</div>}
+            </div>
+          )}
 
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'right', marginTop: 12 }}>
             <thead><tr style={{ background: '#f3f4f6' }}><th style={{ padding: 6 }}>شرح</th><th style={{ padding: 6 }}>تعداد</th><th style={{ padding: 6 }}>قیمت واحد</th><th style={{ padding: 6 }}>مبلغ</th></tr></thead>
