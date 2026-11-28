@@ -25,6 +25,8 @@ const moduleLabels: Record<string, string> = {
   ai: 'Vira AI',
   services: 'خدمات و محدوده‌ها',
   audit: 'تاریخچه',
+  import: 'ورود گروهی',
+  users: 'کاربران',
 };
 
 const actionLabels: Record<string, string> = {
@@ -38,6 +40,12 @@ const actionLabels: Record<string, string> = {
   undo: 'بازگردانی',
   delete_by_admin: 'حذف درخواست توسط ادمین اصلی',
   audit_purge: 'پاک‌سازی تاریخچه',
+  import: 'ورود گروهی با اکسل',
+  block_user: 'مسدودسازی ورود',
+  unblock_user: 'رفع مسدودیت ورود',
+  impersonate: 'ورود آزمایشی به‌جای کاربر',
+  purge_region: 'پاک‌سازی منطقه',
+  happy_call: 'هپی‌کال (ثبت به‌جای مشتری)',
 };
 
 const actionColor: Record<string, [string, string]> = {
@@ -51,6 +59,12 @@ const actionColor: Record<string, [string, string]> = {
   undo: ['#f3e8ff', '#7e22ce'],
   delete_by_admin: ['#fee2e2', '#7f1d1d'],
   audit_purge: ['#e5e7eb', '#374151'],
+  import: ['#ccfbf1', '#0f766e'],
+  block_user: ['#fee2e2', '#7f1d1d'],
+  unblock_user: ['#d1fae5', '#065f46'],
+  impersonate: ['#e0f2fe', '#075985'],
+  purge_region: ['#fee2e2', '#7f1d1d'],
+  happy_call: ['#ccfbf1', '#0f766e'],
 };
 
 const UNDOABLE = ['update', 'archive', 'restore', 'create', 'delete'];

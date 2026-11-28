@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { strings } from '@/lib/strings';
 import ZoomableImage from '@/components/ZoomableImage';
-import { sendSms } from '@/lib/sms';
 import { useMyPerms } from '@/lib/useMyPerms';
 import { can } from '@/lib/permissions';
+import { Modal, Field, inputStyle, btn as uiBtn } from '@/components/admin/ui';
 
 type Seller = { id: string; shop_name: string; phone: string; city: string; is_approved: boolean; };
 type Product = { id: string; name: string; category: string; price: number; stock: number; };
@@ -51,6 +51,10 @@ const managementLinks = [
   { href: '/admin/requests', icon: '🧰', title: 'مدیریت درخواست‌های تکنسین', color: '#ea580c', module: 'requests' },
   { href: '/admin/customers', icon: '🗂️', title: 'بایگانی مشتریان', color: '#8b5cf6', module: 'customers' },
   { href: '/admin/history', icon: '🕘', title: 'تاریخچه تغییرات و بازگردانی', color: '#7c3aed', module: 'history' },
+  { href: '/admin/import', icon: '📥', title: 'ورود گروهی با اکسل', color: '#0f766e', module: 'import' },
+  { href: '/admin/users-access', icon: '🚫', title: 'مسدودسازی ورود کاربران', color: '#7f1d1d', module: 'admins' },
+  { href: '/admin/risk', icon: '🛡', title: 'ریسک فاکتورها و بازبینی', color: '#b45309', module: 'finance' },
+  { href: '/admin/sms', icon: '📱', title: 'پیامک‌ها و اعلان‌ها', color: '#0891b2', module: 'sms' },
   { href: '/admin/backups', icon: '💾', title: 'پشتیبان‌گیری و بازیابی', color: '#0f766e', module: 'backups' },
   { href: '/admin/discounts', icon: '🎟️', title: 'کدهای تخفیف', color: '#dc2626', module: 'discounts' },
   { href: '/admin/finance', icon: '💰', title: 'سود و زیان', color: '#7c3aed', module: 'finance' },
@@ -76,6 +80,18 @@ export default function AdminPanel() {
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [archivedTechs, setArchivedTechs] = useState<Technician[]>([]);
   const [showArchivedTech, setShowArchivedTech] = useState(false);
+  const [editTech, setEditTech] = useState<Technician | null>(null);
+  // حذف سفارش (فقط ادمین اصلی)
+  const [selOrders, setSelOrders] = useState<string[]>([]);
+  const [delOrders, setDelOrders] = useState<string[] | null>(null);
+  const [delReason, setDelReason] = useState('');
+  const [delRestock, setDelRestock] = useState(true);
+  const [delForce, setDelForce] = useState(false);
+  const [delBusy, setDelBusy] = useState(false);
+  const [delMsg, setDelMsg] = useState('');
+  const [editForm, setEditForm] = useState({ full_name: '', phone: '', city: '', specialty: '', national_id: '', experience: '' });
+  const [editErr, setEditErr] = useState('');
+  const [editBusy, setEditBusy] = useState(false);
   const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
   const [activeTab, setActiveTab] = useState<'orders' | 'sellers' | 'products' | 'technicians' | 'service'>('orders');
   const [loading, setLoading] = useState(true);
@@ -118,10 +134,7 @@ export default function AdminPanel() {
       alert('تأیید فروشنده انجام نشد: ' + (upd.error?.message || 'دسترسی لازم وجود ندارد (فایل‌های SQL مرحله ۱ اجرا شده‌اند؟)'));
       return;
     }
-    const sellerRes = await supabase.from('sellers').select('phone').eq('id', id).single();
-    if (sellerRes.data?.phone) {
-      sendSms(sellerRes.data.phone, 'ویرا: حساب فروشندگی شما تایید شد. اکنون می‌توانید محصولات خود را ثبت کنید.');
-    }
+    // پیامک تأیید را تریگر دیتابیس در صف ارسال می‌گذارد
     fetchData();
   }
   async function deleteSeller(id: string) {
@@ -154,7 +167,7 @@ export default function AdminPanel() {
       });
 
       if (orderRes.data.phone) {
-        sendSms(orderRes.data.phone, 'ویرا: وضعیت سفارش شما به "' + statusText + '" تغییر یافت.');
+        // پیامک تغییر وضعیت سفارش را تریگر دیتابیس در صف ارسال می‌گذارد
       }
     }
 
@@ -167,10 +180,7 @@ export default function AdminPanel() {
       alert('تأیید تکنسین انجام نشد: ' + (upd.error?.message || 'دسترسی لازم وجود ندارد'));
       return;
     }
-    const techRes = await supabase.from('technicians').select('phone').eq('id', id).single();
-    if (techRes.data?.phone) {
-      sendSms(techRes.data.phone, 'ویرا: حساب تکنسینی شما تایید شد. اکنون می‌توانید درخواست‌های سرویس را دریافت کنید.');
-    }
+    // پیامک تأیید را تریگر دیتابیس در صف ارسال می‌گذارد
     fetchData();
   }
   async function deleteTechnician(id: string) {
@@ -178,6 +188,54 @@ export default function AdminPanel() {
     if (!reason || !reason.trim()) return;
     const res = await supabase.rpc('admin_archive_technician', { p_id: id, p_reason: reason.trim() });
     if (res.error) { alert('حذف انجام نشد: ' + res.error.message); return; }
+    fetchData();
+  }
+
+  async function confirmDeleteOrders() {
+    if (!delOrders) return;
+    if (!delReason.trim()) { setDelMsg('ثبت دلیل حذف الزامی است'); return; }
+    setDelBusy(true); setDelMsg('');
+    const res = await supabase.rpc('admin_delete_orders', { p_ids: delOrders, p_reason: delReason.trim(), p_restock: delRestock, p_force: delForce });
+    setDelBusy(false);
+    if (res.error) { setDelMsg(res.error.message); return; }
+    const d: any = res.data || {};
+    const fails = ((d.results as any[]) || []).filter((x) => !x.ok);
+    setSelOrders([]);
+    fetchData();
+    if (fails.length === 0) {
+      setDelOrders(null); setDelReason('');
+      alert(Number(d.ok_count || 0) + ' سفارش حذف شد.');
+    } else {
+      setDelOrders(fails.map((x) => x.id));
+      setDelMsg(Number(d.ok_count || 0) + ' سفارش حذف شد؛ ' + fails.length + ' مورد انجام نشد: ' + fails[0].message + (fails.length > 1 ? ' (و موارد مشابه)' : ''));
+    }
+  }
+
+  function openEditTech(t: Technician) {
+    setEditTech(t);
+    setEditErr('');
+    setEditForm({
+      full_name: t.full_name || '', phone: t.phone || '', city: t.city || '',
+      specialty: t.specialty || '', national_id: t.national_id || '', experience: t.experience || '',
+    });
+  }
+  async function saveEditTech() {
+    if (!editTech) return;
+    const f = editForm;
+    if (!f.full_name.trim() || !f.city.trim()) { setEditErr('نام و شهر الزامی است'); return; }
+    if (!/^09[0-9]{9}$/.test(f.phone.trim())) { setEditErr('شماره موبایل باید 11 رقم و با 09 شروع شود'); return; }
+    setEditBusy(true); setEditErr('');
+    const patch = {
+      full_name: f.full_name.trim(), phone: f.phone.trim(), city: f.city.trim(),
+      specialty: f.specialty, national_id: f.national_id.trim(), experience: f.experience.trim(),
+    };
+    const res = await supabase.from('technicians').update(patch).eq('id', editTech.id).select('id');
+    setEditBusy(false);
+    if (res.error || !res.data || res.data.length === 0) {
+      setEditErr('ذخیره انجام نشد: ' + (res.error?.message || 'دسترسی لازم وجود ندارد'));
+      return;
+    }
+    setEditTech(null);
     fetchData();
   }
 
@@ -284,9 +342,24 @@ export default function AdminPanel() {
         <div style={{background:"white", borderRadius:"12px", overflow:"hidden", boxShadow:"0 1px 3px rgba(0,0,0,0.1)"}}>
 
           {currentTab === 'orders' && (
+            <div>
+            {myPerms.perms?.super && selOrders.length > 0 && (
+              <div style={{background:"#fee2e2", padding:"12px 16px", display:"flex", gap:"10px", alignItems:"center", flexWrap:"wrap"}}>
+                <span style={{fontSize:"14px", color:"#991b1b", fontWeight:"bold"}}>{selOrders.length} سفارش انتخاب شده</span>
+                <button onClick={() => { setDelOrders(selOrders); setDelMsg(''); }} style={{background:"#dc2626", color:"white", border:"none", borderRadius:"6px", padding:"6px 14px", cursor:"pointer", fontSize:"13px"}}>حذف انتخاب‌شده‌ها</button>
+                <button onClick={() => setSelOrders([])} style={{background:"#e5e7eb", color:"#374151", border:"none", borderRadius:"6px", padding:"6px 14px", cursor:"pointer", fontSize:"13px"}}>لغو انتخاب</button>
+              </div>
+            )}
             <table style={{width:"100%", borderCollapse:"collapse", textAlign:"right"}}>
               <thead style={{background:"#1e3a8a", color:"white"}}>
                 <tr>
+                  {myPerms.perms?.super && (
+                    <th style={{padding:"12px"}}>
+                      <input type="checkbox" aria-label="انتخاب همه"
+                        checked={orders.length > 0 && orders.every(o => selOrders.includes(o.id))}
+                        onChange={e => setSelOrders(e.target.checked ? orders.map(o => o.id) : [])} />
+                    </th>
+                  )}
                   <th style={{padding:"12px"}}>{strings.col_name}</th>
                   <th style={{padding:"12px"}}>{strings.col_phone}</th>
                   <th style={{padding:"12px"}}>{strings.col_qty}</th>
@@ -298,9 +371,15 @@ export default function AdminPanel() {
               </thead>
               <tbody>
                 {orders.length === 0 ? (
-                  <tr><td colSpan={7} style={{padding:"32px", textAlign:"center", color:"#9ca3af"}}>{strings.no_data_orders}</td></tr>
+                  <tr><td colSpan={8} style={{padding:"32px", textAlign:"center", color:"#9ca3af"}}>{strings.no_data_orders}</td></tr>
                 ) : orders.map(o => (
                   <tr key={o.id} style={{borderBottom:"1px solid #f3f4f6"}}>
+                    {myPerms.perms?.super && (
+                      <td style={{padding:"12px"}}>
+                        <input type="checkbox" aria-label="انتخاب" checked={selOrders.includes(o.id)}
+                          onChange={() => setSelOrders(p => p.includes(o.id) ? p.filter(x => x !== o.id) : [...p, o.id])} />
+                      </td>
+                    )}
                     <td style={{padding:"12px"}}>{o.full_name}</td>
                     <td style={{padding:"12px", color:"#6b7280"}}>{o.phone}</td>
                     <td style={{padding:"12px"}}>{o.quantity}</td>
@@ -326,11 +405,18 @@ export default function AdminPanel() {
                         <option value="delivered">{strings.status_delivered}</option>
                         <option value="cancelled">{strings.status_cancelled}</option>
                       </select>
+                      {myPerms.perms?.super && (
+                        <button onClick={() => { setDelOrders([o.id]); setDelMsg(''); }}
+                          style={{marginRight:"8px", background:"#7f1d1d", color:"white", border:"none", borderRadius:"6px", padding:"4px 10px", cursor:"pointer", fontSize:"12px"}}>
+                          حذف
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           )}
 
           {currentTab === 'technicians' && (
@@ -396,6 +482,12 @@ export default function AdminPanel() {
                         }}>{t.deleted_at ? 'بایگانی‌شده' : (t.is_approved ? strings.status_approved : strings.status_pending)}</span>
                       </td>
                       <td style={{padding:"12px", display:"flex", gap:"8px"}}>
+                        {can(myPerms.perms, 'technicians', 'edit') && (
+                          <button onClick={() => openEditTech(t)}
+                            style={{background:"#0ea5e9", color:"white", border:"none", borderRadius:"6px", padding:"4px 12px", cursor:"pointer", fontSize:"12px"}}>
+                            ویرایش
+                          </button>
+                        )}
                         {t.deleted_at ? (
                           <>
                             {can(myPerms.perms, 'technicians', 'restore') && (
@@ -549,6 +641,47 @@ export default function AdminPanel() {
 
         </div>
       </div>
+      {delOrders && (
+        <Modal title={delOrders.length > 1 ? 'حذف قطعی ' + delOrders.length + ' سفارش' : 'حذف قطعی سفارش'} onClose={() => !delBusy && setDelOrders(null)} width={520}>
+          <div style={{ background: '#fee2e2', color: '#991b1b', borderRadius: 10, padding: 12, fontSize: 13, lineHeight: 1.9 }}>
+            این کار برگشت‌پذیر نیست. قبل از حذف، یک نسخه‌ی کامل از سفارش در تاریخچه‌ی غیرقابل‌تغییر ثبت می‌شود.
+          </div>
+          <Field label="دلیل حذف *"><textarea rows={3} value={delReason} onChange={e => { setDelReason(e.target.value); setDelMsg(''); }} style={inputStyle} /></Field>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, marginTop: 10, cursor: 'pointer' }}>
+            <input type="checkbox" checked={delRestock} onChange={e => setDelRestock(e.target.checked)} />
+            موجودی محصول به انبار برگردانده شود (برای سفارش‌های لغوشده قبلاً برگشته و دوباره اضافه نمی‌شود)
+          </label>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, marginTop: 8, cursor: 'pointer' }}>
+            <input type="checkbox" checked={delForce} onChange={e => setDelForce(e.target.checked)} />
+            حذف حتی سفارش‌های پرداخت‌شده
+          </label>
+          {delMsg && <p style={{ color: '#dc2626', fontSize: 13, marginTop: 10 }}>{delMsg}</p>}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+            <button onClick={() => setDelOrders(null)} disabled={delBusy} style={{ ...uiBtn('#e5e7eb', '#374151'), padding: '8px 18px', fontSize: 13 }}>انصراف</button>
+            <button onClick={confirmDeleteOrders} disabled={delBusy} style={{ ...uiBtn('#dc2626'), padding: '8px 18px', fontSize: 13, opacity: delBusy ? 0.6 : 1 }}>{delBusy ? 'در حال حذف...' : 'حذف قطعی'}</button>
+          </div>
+        </Modal>
+      )}
+      {editTech && (
+        <Modal title={'ویرایش تکنسین: ' + editTech.full_name} onClose={() => !editBusy && setEditTech(null)} width={520}>
+          <Field label="نام و نام خانوادگی *"><input value={editForm.full_name} onChange={e => setEditForm({ ...editForm, full_name: e.target.value })} style={inputStyle} /></Field>
+          <Field label="موبایل *"><input value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value.replace(/\D/g, '').slice(0, 11) })} style={{ ...inputStyle, direction: 'ltr' }} /></Field>
+          <Field label="شهر *"><input value={editForm.city} onChange={e => setEditForm({ ...editForm, city: e.target.value })} style={inputStyle} /></Field>
+          <Field label="تخصص">
+            <select value={editForm.specialty} onChange={e => setEditForm({ ...editForm, specialty: e.target.value })} style={inputStyle}>
+              {!techSpecialties.includes(editForm.specialty) && <option value={editForm.specialty}>{editForm.specialty || '—'}</option>}
+              {techSpecialties.map(k => <option key={k} value={k}>{specialtyMap[k]}</option>)}
+            </select>
+          </Field>
+          <Field label="کد ملی"><input value={editForm.national_id} onChange={e => setEditForm({ ...editForm, national_id: e.target.value.replace(/\D/g, '').slice(0, 10) })} style={{ ...inputStyle, direction: 'ltr' }} /></Field>
+          <Field label="سابقه / توضیحات"><textarea rows={3} value={editForm.experience} onChange={e => setEditForm({ ...editForm, experience: e.target.value })} style={inputStyle} /></Field>
+          {editErr && <p style={{ color: '#dc2626', fontSize: 13, marginTop: 10 }}>{editErr}</p>}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+            <button onClick={() => setEditTech(null)} disabled={editBusy} style={{ ...uiBtn('#e5e7eb', '#374151'), padding: '8px 18px', fontSize: 13 }}>انصراف</button>
+            <button onClick={saveEditTech} disabled={editBusy} style={{ ...uiBtn('#16a34a'), padding: '8px 18px', fontSize: 13, opacity: editBusy ? 0.6 : 1 }}>{editBusy ? 'در حال ذخیره...' : 'ذخیره'}</button>
+          </div>
+        </Modal>
+      )}
     </main>
   );
 }

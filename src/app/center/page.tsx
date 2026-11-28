@@ -7,6 +7,7 @@ import { loadCatalogMaps, type CatalogMaps } from '@/lib/serviceCatalog';
 import RequestDetails from '@/components/RequestDetails';
 import RequestForm from '@/components/RequestForm';
 import DeleteRequestButton from '@/components/center/DeleteRequestButton';
+import HappyCallPanel from '@/components/center/HappyCallPanel';
 
 const OPEN = ['pending', 'assigned', 'accepted', 'in_progress'];
 
@@ -221,6 +222,7 @@ export default function CenterPanel() {
 
               {tab === 'closed' && (
                 <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                  {r.status === 'completed' && <HappyCallPanel requestId={r.id} requestNo={r.request_no} onDone={loadRequests} />}
                   <DeleteRequestButton requestId={r.id} requestNo={r.request_no} onDeleted={loadRequests} />
                 </div>
               )}

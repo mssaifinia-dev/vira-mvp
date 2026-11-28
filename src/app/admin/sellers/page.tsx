@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { sendSms } from '@/lib/sms';
 import { adminFetch, adminRpc } from '@/lib/adminRpc';
 import {
   AuditTimeline,
@@ -231,7 +230,6 @@ export default function AdminSellersPage() {
     const res = await supabase.from('sellers').update({ is_approved: true }).eq('id', s.id).select('id');
     if (res.error) { toast.show('err', res.error.message); return; }
     if (!res.data || res.data.length === 0) { toast.show('err', 'تأیید انجام نشد: دسترسی وجود ندارد (فایل 01_hotfix اجرا شده است؟)'); return; }
-    if (s.phone) sendSms(s.phone, 'ویرا: حساب فروشندگی شما تایید شد. اکنون می‌توانید محصولات خود را ثبت کنید.');
     toast.show('ok', 'فروشنده تأیید شد.');
     load();
   }

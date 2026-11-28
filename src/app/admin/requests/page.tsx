@@ -7,6 +7,7 @@ import { loadCatalogMaps, type CatalogMaps } from '@/lib/serviceCatalog';
 import RequestDetails from '@/components/RequestDetails';
 import RequestForm from '@/components/RequestForm';
 import { useMyPerms } from '@/lib/useMyPerms';
+import HappyCallPanel from '@/components/center/HappyCallPanel';
 import {
   AuditTimeline,
   Field,
@@ -458,6 +459,7 @@ export default function AdminRequestsPage() {
                             {!archived && !closed && <button onClick={() => setCancelTarget(r)} style={btn('#fee2e2', '#dc2626')}>لغو</button>}
                             {!archived && closed && <button onClick={() => setArchiveTarget(r)} style={btn('#e5e7eb', '#374151')}>بایگانی</button>}
                             {archived && <button onClick={() => setRestoreTarget(r)} style={btn('#16a34a')}>بازیابی</button>}
+                            {r.status === 'completed' && <HappyCallPanel requestId={r.id} requestNo={r.request_no} onDone={load} />}
                             {isSuper && <button onClick={() => setDeleteTargets([r])} style={btn('#7f1d1d')}>حذف</button>}
                             {r.status === 'completed' && <a href={'/technician/invoice/' + r.id} style={{ ...btn('#1e3a8a'), textDecoration: 'none', display: 'inline-block' }}>فاکتور</a>}
                           </div>
