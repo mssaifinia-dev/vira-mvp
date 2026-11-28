@@ -12,6 +12,10 @@ export default function AuthPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // تأیید موبایل هنگام ثبت‌نام با رمز عبور
+  const [regSent, setRegSent] = useState(false);
+  const [regCode, setRegCode] = useState('');
+
   // برای حالت پیامکی
   const [otpPhone, setOtpPhone] = useState('');
   const [otpSent, setOtpSent] = useState(false);
@@ -31,6 +35,8 @@ export default function AuthPage() {
 
   function handleIdentifierChange(val: string) {
 
+    setRegSent(false);
+    setRegCode('');
     if (isEmail(val)) {
       setIdentifier(val);
     } else {
@@ -121,51 +127,68 @@ export default function AuthPage() {
 
     } else {
 
+      if (!isPhoneNumber(identifier)) {
+        setError('ثبت‌نام فقط با شماره موبایل ممکن است (ایمیل فقط برای ورود حساب‌های قبلی است)');
+        setLoading(false);
+        return;
+      }
 
-      const signUpRes =
-        await supabase.auth.signUp({
-
-          email: loginEmail,
-          password: password,
-
-        });
-
-
-
-      if (signUpRes.error) {
-
-        setError(
-          'خطا در ثبت‌نام: ' + signUpRes.error.message
-        );
-
-
-      } else {
-
-
-        const signInRes =
-          await supabase.auth.signInWithPassword({
-
-            email: loginEmail,
-            password: password,
-
+      // مرحله ۱: ارسال کد تأیید به موبایل
+      if (!regSent) {
+        try {
+          const res = await fetch('/api/otp/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: identifier, purpose: 'register' }),
           });
-
-
-
-        if (!signInRes.error) {
-
-          window.location.href = '/';
-
-        } else {
-
-          setMessage(
-            'ثبت‌نام انجام شد! حالا وارد شوید.'
-          );
-
-          setIsLogin(true);
-
+          const data = await res.json();
+          if (data.error) {
+            setError(data.error);
+          } else {
+            setRegSent(true);
+            setMessage('کد ۶ رقمی تأیید شماره‌ی شما پیامک شد');
+          }
+        } catch (e) {
+          setError('خطا در ارسال کد. دوباره تلاش کنید');
         }
+        setLoading(false);
+        return;
+      }
 
+      // مرحله ۲: تأیید کد و ساخت حساب
+      if (regCode.length !== 6) {
+        setError('کد تأیید باید ۶ رقم باشد');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: identifier, code: regCode, password: password }),
+        });
+        const data = await res.json();
+        if (data.error) {
+          setError(data.error);
+          setLoading(false);
+          return;
+        }
+      } catch (e) {
+        setError('خطا در ثبت‌نام. دوباره تلاش کنید');
+        setLoading(false);
+        return;
+      }
+
+      const signInRes = await supabase.auth.signInWithPassword({ email: loginEmail, password: password });
+
+      if (!signInRes.error) {
+        window.location.href = '/';
+      } else {
+        setMessage('ثبت‌نام انجام شد! حالا وارد شوید.');
+        setIsLogin(true);
+        setRegSent(false);
+        setRegCode('');
       }
 
     }
@@ -353,6 +376,27 @@ export default function AuthPage() {
 
           </div>
 
+          {!isLogin && regSent && (
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">کد تأیید پیامک‌شده</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={regCode}
+                onChange={(e) => setRegCode(e.target.value.replace(/[^0-9]/g, '').substring(0, 6))}
+                className="w-full border rounded-lg px-4 py-2 text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-900"
+                placeholder="------"
+              />
+              <button
+                type="button"
+                onClick={() => { setRegSent(false); setRegCode(''); setMessage(null); setError(null); }}
+                className="text-blue-900 text-xs mt-1"
+              >
+                تغییر شماره یا ارسال مجدد کد
+              </button>
+            </div>
+          )}
+
 
 
 
@@ -396,7 +440,9 @@ export default function AuthPage() {
               ? 'لطفاً صبر کن...'
               : isLogin
               ? 'ورود'
-              : 'ثبت‌نام'
+              : regSent
+              ? 'تأیید و ثبت‌نام'
+              : 'ارسال کد تأیید'
             }
 
 
@@ -419,7 +465,7 @@ export default function AuthPage() {
 
               type="button"
 
-              onClick={()=>setIsLogin(!isLogin)}
+              onClick={()=>{ setIsLogin(!isLogin); setRegSent(false); setRegCode(''); setError(null); setMessage(null); }}
 
               className="text-blue-900 font-bold mr-1"
 

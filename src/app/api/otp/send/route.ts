@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { findUserByEmail, loginEmailFor, parseDbTime } from '@/lib/otpCore';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,11 +13,11 @@ function isPhoneNumber(val: string) {
  * ارسال کد ورود با کاوه‌نگار.
  * پیش‌فرض: ارسال با «قالب تأییدشده» (verify/lookup) به نام otp که در آن %token کد است.
  * متغیرها: KAVENEGAR_API_KEY (الزامی)، KAVENEGAR_OTP_TEMPLATE (پیش‌فرض otp)،
- * اگر KAVENEGAR_OTP_TEMPLATE=plain باشد، به‌جای قالب، پیامک ساده با خط اختصاصی (KAVENEGAR_SENDER) ارسال می‌شود.
+ * فقط اگر خط اختصاصی ایرانی دارید: KAVENEGAR_OTP_TEMPLATE=plain و KAVENEGAR_SENDER را بگذارید.
  */
 export async function POST(req: NextRequest) {
   try {
-    const { phone } = await req.json();
+    const { phone, purpose } = await req.json();
 
     if (!phone || !isPhoneNumber(phone)) {
       return NextResponse.json({ error: 'شماره موبایل معتبر نیست' }, { status: 400 });
@@ -27,6 +28,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'سرویس پیامک تنظیم نشده' }, { status: 500 });
     }
 
+    // ثبت‌نام: اگر این شماره قبلاً حساب دارد، پیامک بی‌دلیل نمی‌فرستیم
+    if (purpose === 'register' && (await findUserByEmail(loginEmailFor(phone)))) {
+      return NextResponse.json({ error: 'این شماره قبلاً ثبت‌نام کرده است. وارد شوید یا از «کد پیامکی» استفاده کنید' }, { status: 409 });
+    }
+
     // جلوگیری از ارسال پشت‌سرهم (حداقل ۶۰ ثانیه بین دو کد)
     const last = await supabaseAdmin
       .from('otp_codes')
@@ -35,7 +41,7 @@ export async function POST(req: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (last.data && last.data.created_at && Date.now() - new Date(last.data.created_at).getTime() < 60 * 1000) {
+    if (last.data && last.data.created_at && Date.now() - parseDbTime(last.data.created_at) < 60 * 1000) {
       return NextResponse.json({ error: 'کد قبلی تازه ارسال شده است؛ یک دقیقه بعد دوباره تلاش کنید' }, { status: 429 });
     }
 
@@ -51,11 +57,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'خطا در ایجاد کد' }, { status: 500 });
     }
 
-    const template = process.env.KAVENEGAR_OTP_TEMPLATE || 'otp';
+    let template = process.env.KAVENEGAR_OTP_TEMPLATE || 'otp';
+    if (template === 'plain' && !process.env.KAVENEGAR_SENDER) template = 'otp';
     const params = new URLSearchParams();
     params.append('receptor', phone);
     let endpoint: string;
-    if (template === 'plain') {
+    if (template === 'plain' && process.env.KAVENEGAR_SENDER) {
       endpoint = 'sms/send.json';
       params.append('message', 'کد ورود ویرا: ' + code);
       if (process.env.KAVENEGAR_SENDER) params.append('sender', process.env.KAVENEGAR_SENDER);
