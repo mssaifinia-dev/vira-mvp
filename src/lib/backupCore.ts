@@ -120,7 +120,7 @@ export async function createBackup(opts: {
     }
     if (scope === 'all') file.storage_manifest = await storageManifest();
 
-    let payload = Buffer.from(JSON.stringify(file), 'utf-8');
+    let payload: Buffer = Buffer.from(JSON.stringify(file), 'utf-8');
     const key = getKey();
     const encrypted = !!key;
     if (key) payload = encrypt(payload, key);
